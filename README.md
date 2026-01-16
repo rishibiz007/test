@@ -1,2 +1,3 @@
-Added projects for agentic implementation,RAG, AI Eval implementation 
-Added  competitive market analysis rsesearch with Claude vibe coding
+Added projects for agentic implementation,RAG, AI Evals
+
+Checked in competitive market research analysis with Claude vibe coding
