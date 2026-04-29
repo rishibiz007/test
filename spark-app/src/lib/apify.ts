@@ -1,12 +1,3 @@
-import { ApifyClient } from "apify-client";
-
-const APIFY_TOKEN = process.env.APIFY_TOKEN;
-
-const PROFILE_ACTOR =
-  process.env.APIFY_LINKEDIN_PROFILE_ACTOR || "dev_fusion/linkedin-profile-scraper";
-const POSTS_ACTOR =
-  process.env.APIFY_LINKEDIN_POSTS_ACTOR || "apimaestro/linkedin-profile-posts";
-
 export interface RawProfile {
   fullName?: string;
   headline?: string;
@@ -29,11 +20,22 @@ export interface RawPost {
   commentsCount?: number;
 }
 
-function getClient(): ApifyClient {
-  if (!APIFY_TOKEN) {
-    throw new Error("APIFY_TOKEN is not configured. Add it to .env.local.");
-  }
-  return new ApifyClient({ token: APIFY_TOKEN });
+export interface ScrapedSnapshot {
+  profile: RawProfile | null;
+  posts: RawPost[];
+}
+
+const APIFY_BASE = "https://api.apify.com/v2";
+
+const PROFILE_ACTOR =
+  process.env.APIFY_LINKEDIN_PROFILE_ACTOR || "dev_fusion/linkedin-profile-scraper";
+const POSTS_ACTOR =
+  process.env.APIFY_LINKEDIN_POSTS_ACTOR || "apimaestro/linkedin-profile-posts";
+
+function token(): string {
+  const t = process.env.APIFY_TOKEN;
+  if (!t) throw new Error("APIFY_TOKEN is not configured.");
+  return t;
 }
 
 function normalizeUrl(handle: string): string {
@@ -42,57 +44,57 @@ function normalizeUrl(handle: string): string {
   return `https://www.${trimmed.replace(/^www\./, "")}`;
 }
 
-function checkActorError(items: Record<string, unknown>[], actor: string) {
-  const first = items[0] as Record<string, unknown> | undefined;
-  if (first && typeof first["error"] === "string") {
-    console.error(`[apify] actor=${actor} returned error item:`, first["error"]);
-    throw new Error(`Apify actor error (${actor}): ${first["error"]}`);
-  }
-}
-
-export async function scrapeProfile(handle: string): Promise<RawProfile | null> {
-  const client = getClient();
-  const url = normalizeUrl(handle);
-
-  console.log(`[apify] scrapeProfile → actor=${PROFILE_ACTOR} url=${url}`);
-  const run = await client.actor(PROFILE_ACTOR).call(
-    { profileUrls: [url] },
-    { timeout: 90, memory: 1024 }
-  );
-  console.log(`[apify] scrapeProfile run id=${run.id} status=${run.status} dataset=${run.defaultDatasetId}`);
-
-  const { items } = await client.dataset(run.defaultDatasetId).listItems();
-  console.log(`[apify] scrapeProfile items count=${items.length}`, items[0] ?? "(empty)");
-  checkActorError(items as Record<string, unknown>[], PROFILE_ACTOR);
-  return (items[0] as RawProfile) || null;
-}
-
-export async function scrapePosts(handle: string, limit = 8): Promise<RawPost[]> {
-  const client = getClient();
-  const url = normalizeUrl(handle);
-  const username = extractUsername(handle);
-
-  console.log(`[apify] scrapePosts → actor=${POSTS_ACTOR} url=${url} username=${username}`);
-  const run = await client.actor(POSTS_ACTOR).call(
-    { username, profileUrls: [url], maxPosts: limit, limit },
-    { timeout: 90, memory: 1024 }
-  );
-  console.log(`[apify] scrapePosts run id=${run.id} status=${run.status} dataset=${run.defaultDatasetId}`);
-
-  const { items } = await client.dataset(run.defaultDatasetId).listItems();
-  console.log(`[apify] scrapePosts items count=${items.length}`, items[0] ?? "(empty)");
-  checkActorError(items as Record<string, unknown>[], POSTS_ACTOR);
-  return (items as RawPost[]).slice(0, limit);
-}
-
 function extractUsername(handle: string): string {
   const m = handle.match(/in\/([^\/?#]+)/);
   return m ? m[1] : handle;
 }
 
-export interface ScrapedSnapshot {
-  profile: RawProfile | null;
-  posts: RawPost[];
+async function runActor(actorId: string, input: Record<string, unknown>, timeoutSecs = 90): Promise<string> {
+  const url = `${APIFY_BASE}/acts/${encodeURIComponent(actorId)}/runs?token=${token()}&timeout=${timeoutSecs}&waitForFinish=${timeoutSecs}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Apify run failed (${res.status}): ${text}`);
+  }
+  const json = await res.json() as { data: { defaultDatasetId: string; status: string } };
+  console.log(`[apify] actor=${actorId} status=${json.data.status} dataset=${json.data.defaultDatasetId}`);
+  return json.data.defaultDatasetId;
+}
+
+async function getDatasetItems<T>(datasetId: string): Promise<T[]> {
+  const url = `${APIFY_BASE}/datasets/${datasetId}/items?token=${token()}&clean=true`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Apify dataset fetch failed (${res.status})`);
+  }
+  return res.json() as Promise<T[]>;
+}
+
+export async function scrapeProfile(handle: string): Promise<RawProfile | null> {
+  const url = normalizeUrl(handle);
+  console.log(`[apify] scrapeProfile → actor=${PROFILE_ACTOR} url=${url}`);
+  const datasetId = await runActor(PROFILE_ACTOR, { profileUrls: [url] });
+  const items = await getDatasetItems<RawProfile>(datasetId);
+  console.log(`[apify] scrapeProfile items=${items.length}`);
+  const first = items[0] as Record<string, unknown> | undefined;
+  if (first && typeof first["error"] === "string") {
+    throw new Error(`Apify actor error (${PROFILE_ACTOR}): ${first["error"]}`);
+  }
+  return items[0] ?? null;
+}
+
+export async function scrapePosts(handle: string, limit = 8): Promise<RawPost[]> {
+  const url = normalizeUrl(handle);
+  const username = extractUsername(handle);
+  console.log(`[apify] scrapePosts → actor=${POSTS_ACTOR} url=${url} username=${username}`);
+  const datasetId = await runActor(POSTS_ACTOR, { username, profileUrls: [url], maxPosts: limit, limit });
+  const items = await getDatasetItems<RawPost>(datasetId);
+  console.log(`[apify] scrapePosts items=${items.length}`);
+  return items.slice(0, limit);
 }
 
 export async function scrapeLinkedIn(handle: string): Promise<ScrapedSnapshot> {
