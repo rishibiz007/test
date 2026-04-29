@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spark — wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="page-onboarding.jsx"></script>
+<script type="text/babel" src="page-profile.jsx"></script>
+<script type="text/babel" src="page-lookup.jsx"></script>
+<script type="text/babel" src="page-results.jsx"></script>
+<script type="text/babel" src="page-history.jsx"></script>
+<script type="text/babel" src="page-admin.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "resultsVariant": "editorial",
+  "adminVariant": "sidebyside",
+  "onboardingVariant": "stepped",
+  "lookupVariant": "recents",
+  "density": "airy",
+  "showOnboarding": true
+}/*EDITMODE-END*/;
+
+// Top nav now: Lookup is the home (no tab needed), History + Admin are the only tabs.
+const PAGES = [
+  { id: "home", label: "Home" },
+  { id: "history", label: "History" },
+  { id: "admin", label: "Admin" },
+];
+
+function App() {
+  const [page, setPage] = useState("home");
+  const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close avatar menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [menuOpen]);
+
+  // Onboarding overlay — first run only. Toggle via tweaks.showOnboarding.
+  if (tweaks.showOnboarding) {
+    return (
+      <div className="app" data-screen-label="spark · onboarding (first run)">
+        <window.Onboarding variant={tweaks.onboardingVariant} density={tweaks.density} />
+        <div style={{
+          position:"fixed", bottom: 16, left: 16,
+          fontFamily:"JetBrains Mono, monospace", fontSize:11, color:"var(--ink-3)",
+          background:"var(--bg)", border:"1px solid var(--line)", padding:"6px 10px", borderRadius:4,
+        }}>
+          first-run onboarding · <a href="#" onClick={(e) => {e.preventDefault(); setTweak("showOnboarding", false);}}
+            style={{color:"var(--ink-2)"}}>skip to app →</a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app" data-screen-label={`spark · ${page}`}>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <a href="#" onClick={(e) => {e.preventDefault(); setPage("home");}}
+            className="brand" style={{textDecoration:"none", color:"inherit"}}>
+            <span className="brand-dot" />
+            <span className="brand-name serif" style={{fontStyle:"italic"}}>Spark</span>
+            <span className="brand-tag">v0.1</span>
+          </a>
+          <nav className="page-tabs">
+            {PAGES.map(p => (
+              <button key={p.id}
+                className={`page-tab ${page === p.id ? "active" : ""}`}
+                onClick={() => setPage(p.id)}>
+                {p.label}
+              </button>
+            ))}
+          </nav>
+          <div ref={menuRef} style={{position:"relative", marginLeft: 12}}>
+            <button className="avatar-menu" onClick={() => setMenuOpen(o => !o)}
+              style={{background: menuOpen ? "var(--bg-2)" : "var(--bg)"}}>
+              <div className="avatar sm" />
+              <span className="avatar-menu-name">Maya P.</span>
+              <span style={{color:"var(--ink-3)", fontSize:10, padding:"0 4px"}}>▾</span>
+            </button>
+            {menuOpen && (
+              <div className="card" style={{
+                position:"absolute", top:"calc(100% + 6px)", right: 0,
+                minWidth: 200, padding: 6, zIndex: 20,
+                boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+              }}>
+                <div style={{padding:"10px 12px 8px", borderBottom:"1px solid var(--line-2)"}}>
+                  <div style={{fontSize:13, color:"var(--ink)"}}>Maya Patel</div>
+                  <div style={{fontSize:11, color:"var(--ink-3)"}}>maya.p@example.com</div>
+                </div>
+                <MenuItem label="Your profile" onClick={() => {setPage("profile"); setMenuOpen(false);}} />
+                <MenuItem label="Re-run onboarding" onClick={() => {setTweak("showOnboarding", true); setMenuOpen(false);}} />
+                <hr className="divider" style={{margin:"4px 6px"}}/>
+                <MenuItem label="Sign out" muted />
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main>
+        {page === "home"    && <window.Lookup  variant={tweaks.lookupVariant}  density={tweaks.density} />}
+        {page === "results" && <window.Results variant={tweaks.resultsVariant} density={tweaks.density} />}
+        {page === "history" && <window.History density={tweaks.density} />}
+        {page === "admin"   && <window.Admin   variant={tweaks.adminVariant}   density={tweaks.density} />}
+        {page === "profile" && <window.Profile density={tweaks.density} />}
+      </main>
+
+      <SparkTweaks tweaks={tweaks} setTweak={setTweak} page={page} setPage={setPage} />
+    </div>
+  );
+}
+
+function MenuItem({ label, onClick, muted }) {
+  return (
+    <button onClick={onClick} style={{
+      display:"block", width:"100%", textAlign:"left",
+      padding:"8px 12px", border:"none", background:"transparent",
+      font:"inherit", fontSize:13, color: muted ? "var(--ink-3)" : "var(--ink)",
+      borderRadius: 4, cursor:"pointer",
+    }}
+    onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-2)"}
+    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+      {label}
+    </button>
+  );
+}
+
+function SparkTweaks({ tweaks, setTweak, page, setPage }) {
+  const { TweaksPanel, TweakSection, TweakRadio, TweakToggle, TweakButton } = window;
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection title="Density">
+        <TweakRadio
+          value={tweaks.density}
+          onChange={(v) => setTweak("density", v)}
+          options={[
+            { value: "airy", label: "Airy" },
+            { value: "compact", label: "Compact" },
+          ]}
+        />
+      </TweakSection>
+
+      <TweakSection title="Jump to a page"
+        description="Lookup is the home page. Profile is in the avatar menu. Onboarding is first-run only.">
+        <div style={{display:"flex", flexWrap:"wrap", gap:6}}>
+          {[
+            ["home", "Home (Lookup)"],
+            ["results", "Results"],
+            ["history", "History"],
+            ["profile", "Profile"],
+            ["admin", "Admin"],
+          ].map(([id, label]) => (
+            <button key={id} onClick={() => setPage(id)} className={`variant-tab ${page === id ? "active" : ""}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </TweakSection>
+
+      <TweakSection title="Onboarding (first-run)"
+        description="Shows the selected onboarding flow as a full-screen overlay.">
+        <TweakToggle
+          value={tweaks.showOnboarding}
+          onChange={(v) => setTweak("showOnboarding", v)}
+          label="Show onboarding"
+        />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
