@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Avatar, BrandLink, Icon } from "./UI";
-import type { AppState, UserProfile } from "@/lib/types";
+import type { AppState, Person, UserProfile } from "@/lib/types";
 import { DEFAULT_USER } from "@/lib/mockPeople";
 
 interface Props {
@@ -18,14 +18,38 @@ export default function Onboarding({ state, update, onDone }: Props) {
   const [lookingFor, setLookingFor] = useState(state.user.lookingFor);
   const [talksAbout, setTalksAbout] = useState(state.user.talksAbout);
 
-  const startFetch = () => {
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const startFetch = async () => {
     if (!linkedin.trim()) return;
     setFetching(true);
-    setTimeout(() => {
-      setPulled({ ...DEFAULT_USER, linkedin: linkedin.trim() });
-      setFetching(false);
+    setFetchError(null);
+    try {
+      const res = await fetch("/api/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handle: linkedin.trim(), user: state.user }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFetchError(data.error ?? "Failed to fetch profile.");
+        setFetching(false);
+        return;
+      }
+      const person = data.person as Person;
+      setPulled({
+        ...DEFAULT_USER,
+        name: person.name || DEFAULT_USER.name,
+        initials: person.initials || DEFAULT_USER.initials,
+        role: person.role || DEFAULT_USER.role,
+        linkedin: linkedin.trim(),
+      });
       setStep(1);
-    }, 1100);
+    } catch {
+      setFetchError("Network error — please try again.");
+    } finally {
+      setFetching(false);
+    }
   };
 
   const finish = () => {
@@ -93,6 +117,11 @@ export default function Onboarding({ state, update, onDone }: Props) {
                 <div className="skel" style={{ height: 12, width: "55%" }} />
                 <div className="skel" style={{ height: 12, width: "80%" }} />
               </div>
+            )}
+            {fetchError && (
+              <p style={{ marginTop: 16, color: "var(--red, #c0392b)", fontSize: 13 }}>
+                {fetchError}
+              </p>
             )}
             <button
               onClick={() => setLinkedin("linkedin.com/in/mayapatel")}
