@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Avatar, BrandLink, Icon } from "./UI";
-import type { AppState, Person, UserProfile } from "@/lib/types";
+import type { AppState, UserProfile } from "@/lib/types";
 import { DEFAULT_USER } from "@/lib/mockPeople";
 
 interface Props {
@@ -25,10 +25,10 @@ export default function Onboarding({ state, update, onDone }: Props) {
     setFetching(true);
     setFetchError(null);
     try {
-      const res = await fetch("/api/lookup", {
+      const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ handle: linkedin.trim(), user: state.user }),
+        body: JSON.stringify({ handle: linkedin.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -36,14 +36,10 @@ export default function Onboarding({ state, update, onDone }: Props) {
         setFetching(false);
         return;
       }
-      const person = data.person as Person;
-      setPulled({
-        ...DEFAULT_USER,
-        name: person.name || DEFAULT_USER.name,
-        initials: person.initials || DEFAULT_USER.initials,
-        role: person.role || DEFAULT_USER.role,
-        linkedin: linkedin.trim(),
-      });
+      const fetched = data.user as UserProfile;
+      setPulled(fetched);
+      setLookingFor(fetched.lookingFor);
+      setTalksAbout(fetched.talksAbout);
       setStep(1);
     } catch {
       setFetchError("Network error — please try again.");
