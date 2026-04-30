@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { Avatar, BrandLink, Icon } from "./UI";
 import type { AppState, UserProfile } from "@/lib/types";
-import { DEFAULT_USER } from "@/lib/mockPeople";
 
 interface Props {
   state: AppState;
@@ -10,15 +9,57 @@ interface Props {
   onDone: () => void;
 }
 
+function InlineField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <div className="profile-row">
+      <span className="label">{label}</span>
+      {editing ? (
+        <input
+          className="input"
+          style={{ flex: 1, fontSize: 13, padding: "2px 6px", height: 28 }}
+          value={value}
+          autoFocus
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(e) => { if (e.key === "Enter") setEditing(false); }}
+        />
+      ) : (
+        <span style={{ flex: 1, color: value ? "inherit" : "var(--ink-4)", fontStyle: value ? "normal" : "italic" }}>
+          {value || "—"}
+        </span>
+      )}
+      <button
+        onClick={() => setEditing((v) => !v)}
+        style={{ background: "none", border: 0, color: "var(--ink-4)", fontSize: 11, cursor: "pointer", padding: "0 2px" }}
+      >
+        {editing ? "done" : "edit"}
+      </button>
+    </div>
+  );
+}
+
 export default function Onboarding({ state, update, onDone }: Props) {
   const [step, setStep] = useState(0);
   const [linkedin, setLinkedin] = useState(state.user.linkedin || "");
   const [fetching, setFetching] = useState(false);
   const [pulled, setPulled] = useState<UserProfile | null>(null);
-  const [lookingFor, setLookingFor] = useState(state.user.lookingFor);
-  const [talksAbout, setTalksAbout] = useState(state.user.talksAbout);
-
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const [education, setEducation] = useState("");
+  const [recentPosts, setRecentPosts] = useState("");
+  const [podcasts, setPodcasts] = useState("");
+  const [lookingFor, setLookingFor] = useState("");
+  const [talksAbout, setTalksAbout] = useState("");
 
   const startFetch = async () => {
     if (!linkedin.trim()) return;
@@ -38,6 +79,9 @@ export default function Onboarding({ state, update, onDone }: Props) {
       }
       const fetched = data.user as UserProfile;
       setPulled(fetched);
+      setEducation(fetched.education);
+      setRecentPosts(fetched.recentPosts);
+      setPodcasts(fetched.podcasts);
       setLookingFor(fetched.lookingFor);
       setTalksAbout(fetched.talksAbout);
       setStep(1);
@@ -52,7 +96,7 @@ export default function Onboarding({ state, update, onDone }: Props) {
     if (!pulled) return;
     update({
       onboarded: true,
-      user: { ...state.user, ...pulled, lookingFor, talksAbout },
+      user: { ...pulled, education, recentPosts, podcasts, lookingFor, talksAbout },
     });
     onDone();
   };
@@ -87,19 +131,10 @@ export default function Onboarding({ state, update, onDone }: Props) {
               placeholder="linkedin.com/in/…"
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") startFetch();
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") startFetch(); }}
               autoFocus
             />
-            <div
-              style={{
-                marginTop: 20,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
+            <div style={{ marginTop: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span className="muted-2" style={{ fontSize: 11 }}>
                 We only read public information.
               </span>
@@ -121,14 +156,7 @@ export default function Onboarding({ state, update, onDone }: Props) {
             )}
             <button
               onClick={() => setLinkedin("linkedin.com/in/mayapatel")}
-              style={{
-                marginTop: 36,
-                border: 0,
-                background: "transparent",
-                color: "var(--ink-4)",
-                fontSize: 11,
-                cursor: "pointer",
-              }}
+              style={{ marginTop: 36, border: 0, background: "transparent", color: "var(--ink-4)", fontSize: 11, cursor: "pointer" }}
             >
               ⤴ use demo URL
             </button>
@@ -148,32 +176,12 @@ export default function Onboarding({ state, update, onDone }: Props) {
                 <Avatar initials={pulled.initials} size="lg" tone="amber" />
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 500 }}>{pulled.name}</div>
-                  <div className="muted" style={{ fontSize: 13 }}>
-                    {pulled.role}
-                  </div>
+                  <div className="muted" style={{ fontSize: 13 }}>{pulled.role}</div>
                 </div>
               </div>
-              <div className="profile-row">
-                <span className="label">Education</span>
-                <span>{pulled.education}</span>
-                <span className="muted-2" style={{ fontSize: 11 }}>
-                  edit
-                </span>
-              </div>
-              <div className="profile-row">
-                <span className="label">Recent</span>
-                <span>{pulled.recentPosts.split(" · ")[0]}</span>
-                <span className="muted-2" style={{ fontSize: 11 }}>
-                  edit
-                </span>
-              </div>
-              <div className="profile-row">
-                <span className="label">Podcast</span>
-                <span>{pulled.podcasts}</span>
-                <span className="muted-2" style={{ fontSize: 11 }}>
-                  edit
-                </span>
-              </div>
+              <InlineField label="Education" value={education} onChange={setEducation} />
+              <InlineField label="Recent" value={recentPosts} onChange={setRecentPosts} />
+              <InlineField label="Podcast" value={podcasts} onChange={setPodcasts} />
             </div>
             <div style={{ marginTop: 22 }}>
               <label className="eyebrow" style={{ display: "block", marginBottom: 8 }}>
@@ -181,6 +189,7 @@ export default function Onboarding({ state, update, onDone }: Props) {
               </label>
               <textarea
                 className="textarea"
+                placeholder="e.g. PM roles at Series B+ startups in SF or remote"
                 value={lookingFor}
                 onChange={(e) => setLookingFor(e.target.value)}
               />
@@ -191,6 +200,7 @@ export default function Onboarding({ state, update, onDone }: Props) {
               </label>
               <textarea
                 className="textarea"
+                placeholder="e.g. Climate tech, product strategy, coffee"
                 value={talksAbout}
                 onChange={(e) => setTalksAbout(e.target.value)}
               />
@@ -210,16 +220,10 @@ export default function Onboarding({ state, update, onDone }: Props) {
           <div className="onb-step-enter" style={{ textAlign: "center" }}>
             <div
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: 999,
-                background: "var(--accent-soft)",
-                border: "1px solid var(--accent-line)",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--accent)",
-                margin: "8px 0 22px",
+                width: 56, height: 56, borderRadius: 999,
+                background: "var(--accent-soft)", border: "1px solid var(--accent-line)",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                color: "var(--accent)", margin: "8px 0 22px",
               }}
             >
               <Icon name="check" size={20} />
@@ -227,10 +231,7 @@ export default function Onboarding({ state, update, onDone }: Props) {
             <h1 className="h-1 serif" style={{ marginBottom: 10 }}>
               You&apos;re set, {pulled.name.split(" ")[0]}.
             </h1>
-            <p
-              className="muted"
-              style={{ marginBottom: 32, maxWidth: 360, marginLeft: "auto", marginRight: "auto" }}
-            >
+            <p className="muted" style={{ marginBottom: 32, maxWidth: 360, marginLeft: "auto", marginRight: "auto" }}>
               Spark will use what you just shared to personalize every lookup.
             </p>
             <button className="btn lg" onClick={finish}>

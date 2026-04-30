@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeProfile, scrapePosts, RawProfile, RawPost } from "@/lib/apify";
 import type { UserProfile } from "@/lib/types";
-import { DEFAULT_USER } from "@/lib/mockPeople";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +20,7 @@ function deriveInitials(name: string): string {
 
 function formatEducation(profile: RawProfile): string {
   const edu = profile.educations?.[0];
-  if (!edu) return DEFAULT_USER.education;
+  if (!edu) return "";
   const parts = [edu.school, edu.degree, edu.year].filter(Boolean);
   return parts.join(", ");
 }
@@ -30,7 +29,7 @@ function formatRole(profile: RawProfile): string {
   if (profile.currentJobTitle && profile.currentCompany) {
     return `${profile.currentJobTitle} · ${profile.currentCompany}`;
   }
-  return profile.currentJobTitle || profile.currentCompany || profile.headline || DEFAULT_USER.role;
+  return profile.currentJobTitle || profile.currentCompany || profile.headline || "";
 }
 
 function formatRecentPosts(posts: RawPost[]): string {
@@ -38,7 +37,7 @@ function formatRecentPosts(posts: RawPost[]): string {
     .slice(0, 3)
     .map((p) => p.text?.split("\n")[0]?.slice(0, 80).trim())
     .filter(Boolean) as string[];
-  return snippets.length > 0 ? snippets.join(" · ") : DEFAULT_USER.recentPosts;
+  return snippets.join(" · ");
 }
 
 function formatTalksAbout(profile: RawProfile): string {
@@ -48,7 +47,7 @@ function formatTalksAbout(profile: RawProfile): string {
   if (profile.about) {
     return profile.about.slice(0, 200).trim();
   }
-  return DEFAULT_USER.talksAbout;
+  return "";
 }
 
 export async function POST(req: NextRequest) {
@@ -93,17 +92,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const name = rawProfile.fullName || DEFAULT_USER.name;
+    const name = rawProfile.fullName || "";
     const userProfile: UserProfile = {
       name,
       initials: deriveInitials(name),
       role: formatRole(rawProfile),
-      email: DEFAULT_USER.email,
+      email: "",
       linkedin: handle,
       education: formatEducation(rawProfile),
       recentPosts: formatRecentPosts(rawPosts),
-      podcasts: DEFAULT_USER.podcasts,
-      lookingFor: DEFAULT_USER.lookingFor,
+      podcasts: "",
+      lookingFor: "",
       talksAbout: formatTalksAbout(rawProfile),
       refreshedAt: new Date().toISOString(),
     };
