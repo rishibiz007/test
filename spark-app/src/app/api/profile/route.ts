@@ -42,7 +42,11 @@ function formatRecentPosts(posts: RawPost[]): string {
 
 function formatTalksAbout(profile: RawProfile): string {
   if (profile.skills && profile.skills.length > 0) {
-    return profile.skills.slice(0, 6).join(", ");
+    const names = profile.skills
+      .map((s) => (typeof s === "string" ? s : (s as Record<string, unknown>)?.name ?? ""))
+      .filter((s): s is string => typeof s === "string" && s.length > 0)
+      .slice(0, 6);
+    if (names.length > 0) return names.join(", ");
   }
   if (profile.about) {
     return profile.about.slice(0, 200).trim();

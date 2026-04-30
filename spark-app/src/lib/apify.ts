@@ -7,7 +7,7 @@ export interface RawProfile {
   location?: string;
   experiences?: Array<{ title?: string; company?: string; duration?: string; description?: string }>;
   educations?: Array<{ school?: string; degree?: string; year?: string }>;
-  skills?: string[];
+  skills?: (string | { name?: string })[];
   publicIdentifier?: string;
   linkedinUrl?: string;
 }
