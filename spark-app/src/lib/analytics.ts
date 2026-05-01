@@ -51,8 +51,7 @@ export function trackThumbsDownSubmitted(props: {
   topic_id: string;
   topic_category: string;
   target_handle: string;
-  reasons: string[];
-  note: string;
+  feedback: string;
   is_personalized: boolean;
 }) {
   amplitude.track("topic_thumbs_down_submitted", props);

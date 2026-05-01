@@ -71,12 +71,12 @@ export default function Results({ state, update, person, onBackHome, pushToast }
     const cur = state.ratings[topicId];
     if (!cur || ((!cur.reasons || cur.reasons.length === 0) && !cur.note?.trim())) return;
     const topic = person.topics.find((t) => t.id === topicId);
+    const feedbackParts = [...(cur.reasons || []), ...(cur.note?.trim() ? [cur.note.trim()] : [])];
     trackThumbsDownSubmitted({
       topic_id: topicId,
       topic_category: topic?.category ?? "",
       target_handle: person.handle,
-      reasons: cur.reasons,
-      note: cur.note?.trim() ?? "",
+      feedback: feedbackParts.join(", "),
       is_personalized: topic?.usedYou ?? false,
     });
     setOpenPanel(null);
