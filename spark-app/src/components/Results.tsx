@@ -69,7 +69,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
 
   const submitDownvote = (topicId: string) => {
     const cur = state.ratings[topicId];
-    if (!cur || !cur.reasons || cur.reasons.length === 0) return;
+    if (!cur || ((!cur.reasons || cur.reasons.length === 0) && !cur.note?.trim())) return;
     const topic = person.topics.find((t) => t.id === topicId);
     trackThumbsDownSubmitted({
       topic_id: topicId,
@@ -282,7 +282,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
                       <button
                         className="btn sm"
                         onClick={() => submitDownvote(t.id)}
-                        disabled={(r.reasons || []).length === 0}
+                        disabled={(r.reasons || []).length === 0 && !r.note?.trim()}
                       >
                         Submit & remove
                       </button>
