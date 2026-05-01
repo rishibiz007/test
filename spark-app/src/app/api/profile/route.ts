@@ -4,6 +4,7 @@ import type { UserProfile } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 function cleanHandle(input: string): string {
   return input.trim().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");

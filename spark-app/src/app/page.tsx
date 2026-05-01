@@ -11,6 +11,7 @@ import AdminPage from "@/components/AdminPage";
 import { useAppState } from "@/lib/state";
 import { MOCK_PEOPLE } from "@/lib/mockPeople";
 import type { Person } from "@/lib/types";
+import { trackLookupSubmitted, trackLookupResponseReceived, trackLookupFailed } from "@/lib/analytics";
 
 type Route = "onboarding" | "home" | "loading" | "results" | "history" | "profile" | "admin";
 
@@ -35,6 +36,7 @@ export default function Page() {
   const dismissToast = (id: string) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const startLookup = async (handle: string) => {
+    trackLookupSubmitted(handle);
     setLoadingHandle(handle);
     setLookupDone(false);
     setLookupError(null);
@@ -49,11 +51,19 @@ export default function Page() {
       });
       const data = (await res.json()) as { person?: Person; error?: string; source?: string };
       if (!res.ok || !data.person) {
-        setLookupError(data.error || `Lookup failed (${res.status}).`);
+        const errMsg = data.error || `Lookup failed (${res.status}).`;
+        trackLookupFailed(handle, errMsg);
+        setLookupError(errMsg);
         setLookupDone(true);
         return;
       }
       const person = data.person;
+      trackLookupResponseReceived({
+        target_handle: person.handle,
+        target_name: person.name,
+        topic_count: person.topics.length,
+        source: data.source ?? "live",
+      });
       const newCache = { ...state.cache, [person.handle]: person };
       const newHistory = [
         { handle: person.handle, when: new Date().toISOString() },
@@ -73,7 +83,9 @@ export default function Page() {
         });
       }
     } catch (err: unknown) {
-      setLookupError(err instanceof Error ? err.message : "Lookup failed.");
+      const errMsg = err instanceof Error ? err.message : "Lookup failed.";
+      trackLookupFailed(handle, errMsg);
+      setLookupError(errMsg);
       setLookupDone(true);
     }
   };

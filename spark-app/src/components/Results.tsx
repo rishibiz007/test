@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Avatar, Icon } from "./UI";
 import { relativeTime } from "@/lib/state";
 import type { AppState, Person, RatingState } from "@/lib/types";
+import { trackThumbsUp, trackThumbsDownSubmitted, trackTopicCopied } from "@/lib/analytics";
 
 const DOWNVOTE_REASONS = [
   "Too generic",
@@ -47,6 +48,13 @@ export default function Results({ state, update, person, onBackHome, pushToast }
       return;
     }
     updateRating(topicId, { rating, reasons: [], note: "" });
+    const topic = person.topics.find((t) => t.id === topicId);
+    trackThumbsUp({
+      topic_id: topicId,
+      topic_category: topic?.category ?? "",
+      target_handle: person.handle,
+      is_personalized: topic?.usedYou ?? false,
+    });
     void fetch("/api/feedback", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -62,6 +70,15 @@ export default function Results({ state, update, person, onBackHome, pushToast }
   const submitDownvote = (topicId: string) => {
     const cur = state.ratings[topicId];
     if (!cur || !cur.reasons || cur.reasons.length === 0) return;
+    const topic = person.topics.find((t) => t.id === topicId);
+    trackThumbsDownSubmitted({
+      topic_id: topicId,
+      topic_category: topic?.category ?? "",
+      target_handle: person.handle,
+      reasons: cur.reasons,
+      note: cur.note?.trim() ?? "",
+      is_personalized: topic?.usedYou ?? false,
+    });
     setOpenPanel(null);
     setRemoving((p) => ({ ...p, [topicId]: true }));
     void fetch("/api/feedback", {
@@ -193,6 +210,11 @@ export default function Results({ state, update, person, onBackHome, pushToast }
                       className="icon-btn"
                       onClick={() => {
                         navigator.clipboard?.writeText(t.starter).catch(() => {});
+                        trackTopicCopied({
+                          topic_id: t.id,
+                          topic_category: t.category,
+                          target_handle: person.handle,
+                        });
                         pushToast({
                           text: "Copied conversation starter.",
                           actionLabel: null,

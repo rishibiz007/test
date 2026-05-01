@@ -49,7 +49,7 @@ function extractUsername(handle: string): string {
   return m ? m[1] : handle;
 }
 
-async function runActor(actorId: string, input: Record<string, unknown>, timeoutSecs = 90): Promise<string> {
+async function runActor(actorId: string, input: Record<string, unknown>, timeoutSecs = 55): Promise<string> {
   const url = `${APIFY_BASE}/acts/${encodeURIComponent(actorId)}/runs?token=${token()}&timeout=${timeoutSecs}&waitForFinish=${timeoutSecs}`;
   const res = await fetch(url, {
     method: "POST",

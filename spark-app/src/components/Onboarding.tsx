@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Avatar, BrandLink, Icon } from "./UI";
 import type { AppState, UserProfile } from "@/lib/types";
+import { trackOnboardingLinkedInSubmitted, trackOnboardingCompleted } from "@/lib/analytics";
 
 interface Props {
   state: AppState;
@@ -63,6 +64,7 @@ export default function Onboarding({ state, update, onDone }: Props) {
 
   const startFetch = async () => {
     if (!linkedin.trim()) return;
+    trackOnboardingLinkedInSubmitted(linkedin.trim());
     setFetching(true);
     setFetchError(null);
     try {
@@ -94,6 +96,7 @@ export default function Onboarding({ state, update, onDone }: Props) {
 
   const finish = () => {
     if (!pulled) return;
+    trackOnboardingCompleted(pulled.linkedin, pulled.name);
     update({
       onboarded: true,
       user: { ...pulled, education, recentPosts, podcasts, lookingFor, talksAbout },
