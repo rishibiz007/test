@@ -52,7 +52,7 @@ export default function Home({ state, onLookup, onOpenHistory, onOpenLookup }: P
         Who are you meeting?
       </h1>
       <p className="muted" style={{ marginBottom: 28, fontSize: 15, maxWidth: 520 }}>
-        Paste a LinkedIn URL. Spark reads their profile, recent posts, and any podcast or blog
+        Paste a LinkedIn URL. Ice Breaker reads their profile, recent posts, and any podcast or blog
         appearances — then surfaces what you actually have in common.
       </p>
 

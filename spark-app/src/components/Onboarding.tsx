@@ -235,7 +235,7 @@ export default function Onboarding({ state, update, onDone }: Props) {
               You&apos;re set, {pulled.name.split(" ")[0]}.
             </h1>
             <p className="muted" style={{ marginBottom: 32, maxWidth: 360, marginLeft: "auto", marginRight: "auto" }}>
-              Spark will use what you just shared to personalize every lookup.
+              Ice Breaker will use what you just shared to personalize every lookup.
             </p>
             <button className="btn lg" onClick={finish}>
               Look up your first person <Icon name="arrow" />

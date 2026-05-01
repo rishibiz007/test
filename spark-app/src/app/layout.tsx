@@ -3,9 +3,9 @@ import "./globals.css";
 import AmplitudeInit from "@/components/AmplitudeInit";
 
 export const metadata: Metadata = {
-  title: "Spark — Networking copilot",
+  title: "Ice Breaker — Networking copilot",
   description:
-    "Spark turns scattered public info about a person into 3-5 personal, timely, non-creepy talking points in under 30 seconds.",
+    "Ice Breaker turns scattered public info about a person into 3-5 personal, timely, non-creepy talking points in under 30 seconds.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

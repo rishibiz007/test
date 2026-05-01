@@ -18,7 +18,7 @@ export default function ProfilePage({ state, update }: Props) {
     <div className="page narrow fade-in" data-screen-label="05 profile">
       <span className="eyebrow">YOUR PROFILE</span>
       <h1 className="h-1 serif" style={{ marginTop: 8, marginBottom: 22 }}>
-        How Spark sees you
+        How Ice Breaker sees you
       </h1>
 
       <div

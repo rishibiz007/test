@@ -61,7 +61,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
       body: JSON.stringify({ topicId, rating, handle: person.handle }),
     }).catch(() => {});
     pushToast({
-      text: "Thanks — Spark will surface more like this.",
+      text: "Thanks — Ice Breaker will surface more like this.",
       actionLabel: "Undo",
       onAction: () => updateRating(topicId, prev),
     });
@@ -93,7 +93,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
       }),
     }).catch(() => {});
     pushToast({
-      text: "Removed from this list. Spark won't suggest things like this.",
+      text: "Removed from this list. Ice Breaker won't suggest things like this.",
       actionLabel: "Undo",
       onAction: () => {
         const next = { ...state.ratings };
@@ -163,7 +163,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
           <div className="empty">
             <div className="em-title">All topics dismissed</div>
             <div style={{ fontSize: 13 }}>
-              Spark learned from those signals. Try another lookup.
+              Ice Breaker learned from those signals. Try another lookup.
             </div>
             <button className="btn secondary sm" style={{ marginTop: 14 }} onClick={onBackHome}>
               Look someone else up →

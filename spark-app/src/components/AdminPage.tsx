@@ -58,7 +58,7 @@ const SEED_FEEDBACK: FeedbackItem[] = [
     target: "Soraya Nadim",
     rating: "down",
     reasons: ["Tone is off"],
-    note: "'Finance bro' is the kind of phrase that lands well with one audience and badly with another. Spark shouldn't put it in someone's mouth.",
+    note: "'Finance bro' is the kind of phrase that lands well with one audience and badly with another. Ice Breaker shouldn't put it in someone's mouth.",
     starter:
       "Ramp's procurement launch felt very different in tone from the original spend cards — less 'finance bro' and more measured. Was that intentional?",
     why: "Ramp announced procurement two weeks ago and the brand voice on the launch page is noticeably different.",
@@ -135,7 +135,7 @@ export default function AdminPage({ onClose }: Props) {
         </div>
       </div>
       <h1 className="h-1 serif" style={{ marginTop: 8, marginBottom: 6 }}>
-        Spark admin
+        Ice Breaker admin
       </h1>
       <p className="muted" style={{ marginBottom: 22, fontSize: 14 }}>
         Triage user feedback, write ideal outputs, and ship them as evals.
@@ -341,7 +341,7 @@ export default function AdminPage({ onClose }: Props) {
                   >
                     <textarea
                       className="textarea"
-                      placeholder="Write what Spark should have said instead…"
+                      placeholder="Write what Ice Breaker should have said instead…"
                       value={ideal}
                       onChange={(e) => setIdeal(e.target.value)}
                       style={{

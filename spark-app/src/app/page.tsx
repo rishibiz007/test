@@ -123,7 +123,7 @@ export default function Page() {
     setRoute("onboarding");
   };
   const signOut = () => {
-    if (confirm("Sign out and clear your local Spark data?")) {
+    if (confirm("Sign out and clear your local Ice Breaker data?")) {
       reset();
       setRoute("onboarding");
     }

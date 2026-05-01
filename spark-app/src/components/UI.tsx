@@ -157,7 +157,7 @@ export function BrandLink({ onClick }: { onClick: () => void }) {
       }}
     >
       <span className="brand-mark" />
-      <span className="brand-name">Spark</span>
+      <span className="brand-name">Ice Breaker</span>
     </a>
   );
 }
