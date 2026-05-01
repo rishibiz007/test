@@ -1,8 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { initLogger, wrapAnthropic } from "braintrust";
 import type { Person, Topic, UserProfile } from "./types";
 import type { RawPost, RawProfile } from "./apify";
 
 const MODEL = "claude-sonnet-4-6";
+
+if (process.env.BRAINTRUST_API_KEY) {
+  initLogger({ projectName: "Ice Breaker", apiKey: process.env.BRAINTRUST_API_KEY });
+}
 
 const SYSTEM_PROMPT = `You are Ice Breaker, a networking copilot. Given (a) a target person's public LinkedIn profile + recent posts, and (b) the user's own profile, produce 3-5 personal, timely, non-creepy talking points the user can actually open with.
 
@@ -79,7 +84,8 @@ export async function generateTopics(opts: {
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY is not configured. Add it to .env.local.");
   }
-  const client = new Anthropic({ apiKey });
+  const baseClient = new Anthropic({ apiKey });
+  const client = process.env.BRAINTRUST_API_KEY ? wrapAnthropic(baseClient) : baseClient;
 
   const message = await client.messages.create({
     model: MODEL,
