@@ -166,13 +166,11 @@ export function AvatarMenu({
   user,
   onProfile,
   onRerunOnboarding,
-  onAdmin,
   onSignOut,
 }: {
   user: { name: string; email: string; initials: string };
   onProfile: () => void;
   onRerunOnboarding: () => void;
-  onAdmin: () => void;
   onSignOut: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -204,20 +202,6 @@ export function AvatarMenu({
           </button>
           <button className="dropdown-item" onClick={() => { setOpen(false); onRerunOnboarding(); }}>
             <Icon name="refresh" /> Re-run onboarding
-          </button>
-          <hr className="dropdown-sep" />
-          <button className="dropdown-item" onClick={() => { setOpen(false); onAdmin(); }}>
-            <Icon name="shield" /> Admin{" "}
-            <span
-              style={{
-                marginLeft: "auto",
-                fontSize: 10,
-                fontFamily: "JetBrains Mono, monospace",
-                color: "var(--ink-4)",
-              }}
-            >
-              internal
-            </span>
           </button>
           <hr className="dropdown-sep" />
           <button className="dropdown-item muted" onClick={() => { setOpen(false); onSignOut(); }}>

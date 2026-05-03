@@ -7,13 +7,12 @@ import LoadingScreen from "@/components/LoadingScreen";
 import Results from "@/components/Results";
 import HistoryPage from "@/components/HistoryPage";
 import ProfilePage from "@/components/ProfilePage";
-import AdminPage from "@/components/AdminPage";
 import { useAppState } from "@/lib/state";
 import { MOCK_PEOPLE } from "@/lib/mockPeople";
 import type { Person } from "@/lib/types";
 import { trackLookupSubmitted, trackLookupResponseReceived, trackLookupFailed } from "@/lib/analytics";
 
-type Route = "onboarding" | "home" | "loading" | "results" | "history" | "profile" | "admin";
+type Route = "onboarding" | "home" | "loading" | "results" | "history" | "profile";
 
 export default function Page() {
   const { state, update, reset, hydrated } = useAppState();
@@ -117,7 +116,6 @@ export default function Page() {
   const goHome = () => setRoute("home");
   const goHistory = () => setRoute("history");
   const goProfile = () => setRoute("profile");
-  const goAdmin = () => setRoute("admin");
   const rerunOnboarding = () => {
     update({ onboarded: false });
     setRoute("onboarding");
@@ -149,7 +147,6 @@ export default function Page() {
               user={state.user}
               onProfile={goProfile}
               onRerunOnboarding={rerunOnboarding}
-              onAdmin={goAdmin}
               onSignOut={signOut}
             />
           </div>
@@ -190,7 +187,6 @@ export default function Page() {
         <HistoryPage state={state} onOpenLookup={openLookup} onBackHome={goHome} />
       )}
       {route === "profile" && <ProfilePage state={state} update={update} />}
-      {route === "admin" && <AdminPage onClose={goHome} />}
 
       <div className="toast-rail">
         {toasts.map((t) => (
