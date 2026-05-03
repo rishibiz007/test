@@ -5,9 +5,9 @@ import type { RawPost, RawProfile } from "./apify";
 
 const MODEL = "claude-sonnet-4-6";
 
-if (process.env.BRAINTRUST_API_KEY) {
-  initLogger({ projectName: "Ice Breaker", apiKey: process.env.BRAINTRUST_API_KEY });
-}
+export const btLogger = process.env.BRAINTRUST_API_KEY
+  ? initLogger({ projectName: "Ice Breaker", apiKey: process.env.BRAINTRUST_API_KEY })
+  : null;
 
 const SYSTEM_PROMPT = `You are Ice Breaker, a networking copilot. Given (a) a target person's public LinkedIn profile + recent posts, and (b) the user's own profile, produce 3-5 personal, timely, non-creepy talking points the user can actually open with.
 
@@ -85,50 +85,57 @@ export async function generateTopics(opts: {
     throw new Error("ANTHROPIC_API_KEY is not configured. Add it to .env.local.");
   }
   const baseClient = new Anthropic({ apiKey });
-  const client = process.env.BRAINTRUST_API_KEY ? wrapAnthropic(baseClient) : baseClient;
+  const client = btLogger ? wrapAnthropic(baseClient) : baseClient;
 
-  const message = await client.messages.create({
-    model: MODEL,
-    max_tokens: 2048,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userPrompt(opts) }],
-  });
+  const build = async (spanId?: string): Promise<Person> => {
+    const message = await client.messages.create({
+      model: MODEL,
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userPrompt(opts) }],
+    });
 
-  const block = message.content.find((c) => c.type === "text");
-  const text = block && "text" in block ? block.text.trim() : "";
+    const block = message.content.find((c) => c.type === "text");
+    const text = block && "text" in block ? block.text.trim() : "";
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("LLM returned non-JSON output");
-  }
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("LLM returned non-JSON output");
+    }
 
-  const parsed = JSON.parse(jsonMatch[0]) as Partial<Person>;
+    const parsed = JSON.parse(jsonMatch[0]) as Partial<Person>;
 
-  const name =
-    parsed.name ||
-    opts.profile?.fullName ||
-    opts.handle.replace(/.*\/in\//, "").replace(/-/g, " ");
-  const role = parsed.role || opts.profile?.currentJobTitle || opts.profile?.headline || "";
-  const company = parsed.company || opts.profile?.currentCompany || "";
-  const bio = parsed.bio || opts.profile?.headline || `${role}${company ? ` · ${company}` : ""}`;
+    const name =
+      parsed.name ||
+      opts.profile?.fullName ||
+      opts.handle.replace(/.*\/in\//, "").replace(/-/g, " ");
+    const role = parsed.role || opts.profile?.currentJobTitle || opts.profile?.headline || "";
+    const company = parsed.company || opts.profile?.currentCompany || "";
+    const bio = parsed.bio || opts.profile?.headline || `${role}${company ? ` · ${company}` : ""}`;
 
-  const topics: Topic[] = (parsed.topics ?? []).map((t, i) => ({
-    id: t.id ?? `t-${i + 1}`,
-    category: (t.category as Topic["category"]) ?? "WORK",
-    starter: t.starter ?? "",
-    why: t.why ?? "",
-    source: t.source ?? "",
-    url: t.url ?? "",
-    usedYou: !!t.usedYou,
-  }));
+    const topics: Topic[] = (parsed.topics ?? []).map((t, i) => ({
+      id: t.id ?? `t-${i + 1}`,
+      category: (t.category as Topic["category"]) ?? "WORK",
+      starter: t.starter ?? "",
+      why: t.why ?? "",
+      source: t.source ?? "",
+      url: t.url ?? "",
+      usedYou: !!t.usedYou,
+    }));
 
-  return {
-    handle: opts.handle,
-    name,
-    initials: deriveInitials(name),
-    role,
-    company,
-    bio,
-    topics,
+    return {
+      handle: opts.handle,
+      name,
+      initials: deriveInitials(name),
+      role,
+      company,
+      bio,
+      topics,
+      spanId,
+    };
   };
+
+  if (!btLogger) return build();
+
+  return btLogger.traced((span) => build(span.id), { name: "ice-breaker-lookup" });
 }

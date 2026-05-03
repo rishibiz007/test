@@ -58,7 +58,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
     void fetch("/api/feedback", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ topicId, rating, handle: person.handle }),
+      body: JSON.stringify({ topicId, rating, handle: person.handle, spanId: person.spanId }),
     }).catch(() => {});
     pushToast({
       text: "Thanks — Ice Breaker will surface more like this.",
@@ -90,6 +90,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
         reasons: cur.reasons,
         note: cur.note,
         handle: person.handle,
+        spanId: person.spanId,
       }),
     }).catch(() => {});
     pushToast({

@@ -23,6 +23,7 @@ export interface Person {
   company: string;
   bio: string;
   topics: Topic[];
+  spanId?: string;
 }
 
 export interface UserProfile {

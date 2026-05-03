@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { initLogger } from "braintrust";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,7 @@ interface FeedbackBody {
   reasons?: string[];
   note?: string;
   handle?: string;
+  spanId?: string;
 }
 
 const inMemoryStore: FeedbackBody[] = [];
@@ -23,6 +25,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "topicId and rating are required" }, { status: 400 });
   }
   inMemoryStore.push({ ...body });
+
+  if (process.env.BRAINTRUST_API_KEY && body.spanId) {
+    const logger = initLogger({ projectName: "Ice Breaker", apiKey: process.env.BRAINTRUST_API_KEY });
+    const metadata: Record<string, unknown> = {};
+    if (body.reasons?.length) metadata.reasons = body.reasons;
+    if (body.topicId) metadata.topicId = body.topicId;
+    logger.logFeedback({
+      id: body.spanId,
+      scores: { "IB Feedback": body.rating === "up" ? 1 : 0 },
+      comment: body.note || undefined,
+      ...(Object.keys(metadata).length ? { metadata } : {}),
+    });
+  }
+
   return NextResponse.json({ ok: true, count: inMemoryStore.length });
 }
 
