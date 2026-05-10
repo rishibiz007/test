@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AmplitudeInit from "@/components/AmplitudeInit";
+import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Ice Breaker — Networking copilot",
@@ -20,8 +21,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <AmplitudeInit />
-        {children}
+        <Providers>
+          <AmplitudeInit />
+          {children}
+        </Providers>
       </body>
     </html>
   );

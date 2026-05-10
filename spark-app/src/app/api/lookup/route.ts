@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getSupabase } from "@/lib/supabase";
 import { scrapeLinkedIn } from "@/lib/apify";
 import { generateTopics } from "@/lib/llm";
 import { MOCK_PEOPLE, DEFAULT_USER } from "@/lib/mockPeople";
@@ -7,6 +10,8 @@ import type { UserProfile } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function cleanHandle(input: string): string {
   return input.trim().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
@@ -28,7 +33,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id ?? null;
   const user: UserProfile = body.user ?? DEFAULT_USER;
+  const supabase = getSupabase();
 
   const useMocks = !process.env.APIFY_TOKEN || !process.env.ANTHROPIC_API_KEY;
 
@@ -46,6 +54,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ person: fallback, source: "mock" });
   }
 
+  // Check server-side cache in Supabase
+  if (supabase) {
+    const { data: cached } = await supabase
+      .from("lookup_cache")
+      .select("person_json, cached_at")
+      .eq("handle", handle)
+      .single();
+
+    if (cached && Date.now() - new Date(cached.cached_at as string).getTime() < CACHE_TTL_MS) {
+      if (userId) {
+        await supabase.from("user_lookups").insert({ user_id: userId, handle });
+      }
+      return NextResponse.json({ person: cached.person_json, source: "cache" });
+    }
+  }
+
   try {
     const snapshot = await scrapeLinkedIn(handle);
     console.log(`[lookup] snapshot profile=${!!snapshot.profile} posts=${snapshot.posts.length}`);
@@ -61,6 +85,18 @@ export async function POST(req: NextRequest) {
       posts: snapshot.posts,
       user,
     });
+
+    // Persist to shared server-side cache
+    if (supabase) {
+      await supabase
+        .from("lookup_cache")
+        .upsert({ handle, person_json: person, cached_at: new Date().toISOString() });
+
+      if (userId) {
+        await supabase.from("user_lookups").insert({ user_id: userId, handle });
+      }
+    }
+
     return NextResponse.json({ person, source: "live" });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";

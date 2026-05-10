@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSession, signIn, signOut as nextAuthSignOut } from "next-auth/react";
 import { AvatarMenu, BrandLink, Toast, type ToastShape } from "@/components/UI";
 import Onboarding from "@/components/Onboarding";
 import Home from "@/components/Home";
@@ -15,6 +16,7 @@ import { trackLookupSubmitted, trackLookupResponseReceived, trackLookupFailed } 
 type Route = "onboarding" | "home" | "loading" | "results" | "history" | "profile";
 
 export default function Page() {
+  const { data: session, status: sessionStatus } = useSession();
   const { state, update, reset, hydrated } = useAppState();
   const [route, setRoute] = useState<Route>("home");
   const [loadingHandle, setLoadingHandle] = useState<string | null>(null);
@@ -123,12 +125,31 @@ export default function Page() {
   const signOut = () => {
     if (confirm("Sign out and clear your local Ice Breaker data?")) {
       reset();
-      setRoute("onboarding");
+      void nextAuthSignOut({ callbackUrl: "/" });
     }
   };
 
-  if (!hydrated) {
+  if (!hydrated || sessionStatus === "loading") {
     return <div className="app" />;
+  }
+
+  if (!session) {
+    return (
+      <div className="app">
+        <div className="page narrow fade-in" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", textAlign: "center" }}>
+          <div style={{ marginBottom: 24 }}>
+            <BrandLink onClick={() => {}} />
+          </div>
+          <h1 className="h-display serif" style={{ marginBottom: 12 }}>Sign in to continue</h1>
+          <p className="muted" style={{ marginBottom: 32, maxWidth: 360, fontSize: 15 }}>
+            Ice Breaker uses your Google account to save your lookup history and cache results across devices.
+          </p>
+          <button className="btn" onClick={() => void signIn("google")}>
+            Sign in with Google
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const showShell = route !== "onboarding";
