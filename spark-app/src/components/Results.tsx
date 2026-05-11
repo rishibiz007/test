@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Avatar, Icon } from "./UI";
 import { relativeTime } from "@/lib/state";
-import type { AppState, Person, RatingState } from "@/lib/types";
+import type { AppState, Person, RatingState, UserProfile } from "@/lib/types";
 import { trackThumbsUp, trackThumbsDownSubmitted, trackTopicCopied } from "@/lib/analytics";
 
 const DOWNVOTE_REASONS = [
@@ -13,6 +13,8 @@ const DOWNVOTE_REASONS = [
   "Tone is off",
   "Not relevant to me",
 ];
+
+type OutreachStatus = "idle" | "loading" | "done" | "error";
 
 interface Props {
   state: AppState;
@@ -25,6 +27,28 @@ interface Props {
 export default function Results({ state, update, person, onBackHome, pushToast }: Props) {
   const [openPanel, setOpenPanel] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Record<string, boolean>>({});
+  const [outreachStatus, setOutreachStatus] = useState<OutreachStatus>("idle");
+  const [outreachMessage, setOutreachMessage] = useState("");
+
+  const generateOutreach = async () => {
+    setOutreachStatus("loading");
+    try {
+      const res = await fetch("/api/outreach", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ person, user: state.user as UserProfile }),
+      });
+      const data = await res.json() as { message?: string; error?: string };
+      if (!res.ok || !data.message) {
+        setOutreachStatus("error");
+        return;
+      }
+      setOutreachMessage(data.message);
+      setOutreachStatus("done");
+    } catch {
+      setOutreachStatus("error");
+    }
+  };
 
   const visibleTopics = person.topics.filter((t) => {
     const r = state.ratings[t.id];
@@ -293,6 +317,70 @@ export default function Results({ state, update, person, onBackHome, pushToast }
               </article>
             );
           })
+        )}
+      </div>
+
+      <div
+        style={{
+          marginTop: 40,
+          padding: "24px",
+          border: "1px solid var(--line-2)",
+          borderRadius: "var(--r-2)",
+          background: "var(--surface-2)",
+        }}
+      >
+        <div className="eyebrow" style={{ marginBottom: 10 }}>COLD OUTREACH</div>
+        <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+          Generate a LinkedIn connection request using the best ice breaker topic.
+        </p>
+        {outreachStatus === "idle" && (
+          <button className="btn secondary sm" onClick={() => void generateOutreach()}>
+            Generate message
+          </button>
+        )}
+        {outreachStatus === "loading" && (
+          <div className="muted" style={{ fontSize: 13 }}>Generating…</div>
+        )}
+        {outreachStatus === "error" && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "var(--bad)" }}>Generation failed.</span>
+            <button className="btn ghost sm" onClick={() => void generateOutreach()}>Retry</button>
+          </div>
+        )}
+        {outreachStatus === "done" && (
+          <div>
+            <div
+              style={{
+                background: "var(--surface)",
+                border: "1px solid var(--line-2)",
+                borderRadius: "var(--r-1)",
+                padding: "14px 16px",
+                fontSize: 14,
+                lineHeight: 1.6,
+                marginBottom: 12,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {outreachMessage}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                className="btn sm"
+                onClick={() => {
+                  navigator.clipboard?.writeText(outreachMessage).catch(() => {});
+                  pushToast({ text: "LinkedIn message copied.", ttl: 2200 });
+                }}
+              >
+                <Icon name="copy" /> Copy
+              </button>
+              <span className="muted-2" style={{ fontSize: 11, fontFamily: "JetBrains Mono, monospace" }}>
+                {outreachMessage.length} / 300 chars
+              </span>
+              <button className="btn ghost sm" onClick={() => void generateOutreach()}>
+                Regenerate
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

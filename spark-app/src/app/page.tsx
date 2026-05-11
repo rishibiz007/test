@@ -10,7 +10,7 @@ import HistoryPage from "@/components/HistoryPage";
 import ProfilePage from "@/components/ProfilePage";
 import { useAppState } from "@/lib/state";
 import { MOCK_PEOPLE } from "@/lib/mockPeople";
-import type { Person } from "@/lib/types";
+import type { Person, HistoryItem } from "@/lib/types";
 import { trackLookupSubmitted, trackLookupResponseReceived, trackLookupFailed } from "@/lib/analytics";
 
 type Route = "onboarding" | "home" | "loading" | "results" | "history" | "profile";
@@ -29,6 +29,24 @@ export default function Page() {
     if (!hydrated) return;
     setRoute(state.onboarded ? "home" : "onboarding");
   }, [hydrated, state.onboarded]);
+
+  // Load cross-device history from Supabase once session + hydration are ready
+  useEffect(() => {
+    if (!session?.user?.id || !hydrated) return;
+    fetch("/api/history")
+      .then((r) => r.json())
+      .then((data: { history?: HistoryItem[]; cache?: Record<string, Person> }) => {
+        if (!data.history?.length) return;
+        const serverHandles = new Set(data.history.map((h) => h.handle));
+        const localOnly = state.history.filter((h) => !serverHandles.has(h.handle));
+        update({
+          history: [...data.history, ...localOnly].slice(0, 50),
+          cache: { ...state.cache, ...data.cache },
+        });
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, hydrated]);
 
   const pushToast = (t: Omit<ToastShape, "id">) => {
     const id = Math.random().toString(36).slice(2);
