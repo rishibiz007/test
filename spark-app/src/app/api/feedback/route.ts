@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabase();
   if (supabase) {
-    await supabase.from("user_feedback").insert({
+    const { error } = await supabase.from("user_feedback").insert({
       user_id: userId,
       topic_id: body.topicId,
       handle: body.handle ?? null,
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       note: body.note ?? null,
       span_id: body.spanId ?? null,
     });
+    if (error) console.error("[feedback] supabase insert error:", error.message);
   } else {
     inMemoryStore.push({ ...body });
   }
@@ -63,13 +64,19 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = getSupabase();
   if (supabase) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("user_feedback")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(500);
+    if (error) console.error("[feedback] supabase select error:", error.message);
     return NextResponse.json({ feedback: data ?? [] });
   }
   return NextResponse.json({ feedback: inMemoryStore });

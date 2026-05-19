@@ -33,13 +33,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id ?? null;
   const user: UserProfile = body.user ?? DEFAULT_USER;
   const supabase = getSupabase();
-
   const useMocks = !process.env.APIFY_TOKEN || !process.env.ANTHROPIC_API_KEY;
 
+  // Demo mode — allow unauthenticated access for local development
   if (useMocks) {
     const fallback = MOCK_PEOPLE[handle];
     if (!fallback) {
@@ -54,20 +52,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ person: fallback, source: "mock" });
   }
 
-  // Check server-side cache in Supabase
-  if (supabase) {
-    const { data: cached } = await supabase
-      .from("lookup_cache")
-      .select("person_json, cached_at")
-      .eq("handle", handle)
-      .single();
+  // Parallelize auth check and cache lookup — saves one round-trip on cache hits
+  const [session, cacheRow] = await Promise.all([
+    getServerSession(authOptions),
+    supabase
+      ? supabase.from("lookup_cache").select("person_json, cached_at").eq("handle", handle).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
-    if (cached && Date.now() - new Date(cached.cached_at as string).getTime() < CACHE_TTL_MS) {
-      if (userId) {
-        await supabase.from("user_lookups").insert({ user_id: userId, handle });
-      }
-      return NextResponse.json({ person: cached.person_json, source: "cache" });
-    }
+  // Require auth for all live requests
+  const userId = session?.user?.id ?? null;
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const cached = cacheRow.data as { person_json: unknown; cached_at: string } | null;
+  if (cached && Date.now() - new Date(cached.cached_at).getTime() < CACHE_TTL_MS) {
+    void supabase!.from("user_lookups").insert({ user_id: userId, handle });
+    return NextResponse.json({ person: cached.person_json, source: "cache" });
   }
 
   try {
@@ -86,15 +88,11 @@ export async function POST(req: NextRequest) {
       user,
     });
 
-    // Persist to shared server-side cache
     if (supabase) {
-      await supabase
-        .from("lookup_cache")
-        .upsert({ handle, person_json: person, cached_at: new Date().toISOString() });
-
-      if (userId) {
-        await supabase.from("user_lookups").insert({ user_id: userId, handle });
-      }
+      void Promise.all([
+        supabase.from("lookup_cache").upsert({ handle, person_json: person, cached_at: new Date().toISOString() }),
+        supabase.from("user_lookups").insert({ user_id: userId, handle }),
+      ]);
     }
 
     return NextResponse.json({ person, source: "live" });

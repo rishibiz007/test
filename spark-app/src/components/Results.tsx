@@ -32,11 +32,13 @@ export default function Results({ state, update, person, onBackHome, pushToast }
 
   const generateOutreach = async () => {
     setOutreachStatus("loading");
+    // Prefer the first 👍'd topic so the message reflects what the user found useful
+    const likedTopicId = person.topics.find((t) => state.ratings[t.id]?.rating === "up")?.id;
     try {
       const res = await fetch("/api/outreach", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ person, user: state.user as UserProfile }),
+        body: JSON.stringify({ person, user: state.user, topicId: likedTopicId }),
       });
       const data = await res.json() as { message?: string; error?: string };
       if (!res.ok || !data.message) {

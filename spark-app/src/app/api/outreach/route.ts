@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import type { Person, UserProfile } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const SYSTEM_PROMPT = `You write personalized LinkedIn connection request messages for job seekers.
 
 Rules:
 - 280 characters or fewer (LinkedIn's connection request limit)
-- Reference exactly ONE specific, concrete detail from the provided ice breaker topics — something recent and non-obvious
+- Reference exactly ONE specific, concrete detail from the provided ice breaker topic — something recent and non-obvious
 - Briefly tie it to the sender's background or goals
 - End with a clear, low-friction ask (coffee chat, 15-min call)
 - No flattery: ban "huge fan", "inspiring", "love your work", "amazing"
@@ -20,29 +20,40 @@ Rules:
 - Output ONLY the message text. No quotes, no label, no commentary.`;
 
 export async function POST(req: NextRequest) {
-  let body: { person: Person; user: UserProfile };
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: { person: Person; user: UserProfile; topicId?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { person, user } = body;
+  const { person, user, topicId } = body;
   if (!person || !user) {
     return NextResponse.json({ error: "person and user are required" }, { status: 400 });
   }
 
-  const bestTopic = person.topics[0];
-  if (!bestTopic) {
+  // Use the caller's preferred (liked) topic; fall back to first topic
+  const topic = (topicId ? person.topics.find((t) => t.id === topicId) : null) ?? person.topics[0];
+  if (!topic) {
     return NextResponse.json({ error: "No topics available for outreach" }, { status: 400 });
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY is not configured" }, { status: 500 });
   }
 
   const userPrompt = `Target: ${person.name}, ${person.role} at ${person.company}
 
-Best ice breaker topic to reference:
-- Opener: ${bestTopic.starter}
-- Context: ${bestTopic.why}
-- Source: ${bestTopic.source}
+Ice breaker topic to reference:
+- Opener: ${topic.starter}
+- Context: ${topic.why}
+- Source: ${topic.source}
 
 Sender:
 - Name: ${user.name}
@@ -52,6 +63,7 @@ Sender:
 Write the LinkedIn connection request now.`;
 
   try {
+    const client = new Anthropic({ apiKey });
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 256,
