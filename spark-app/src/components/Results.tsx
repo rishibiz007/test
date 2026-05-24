@@ -32,6 +32,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
   const [outreachMessage, setOutreachMessage] = useState("");
   const [commuteStatus, setCommuteStatus] = useState<CommuteStatus>("idle");
   const [commuteAudioUrl, setCommuteAudioUrl] = useState("");
+  const [commuteEmail, setCommuteEmail] = useState(state.user.email || "");
 
   const generateOutreach = async () => {
     setOutreachStatus("loading");
@@ -61,7 +62,7 @@ export default function Results({ state, update, person, onBackHome, pushToast }
       const res = await fetch("/api/commute", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ person, user: state.user }),
+        body: JSON.stringify({ person, user: { ...state.user, email: commuteEmail } }),
       });
       const data = await res.json() as { audioUrl?: string; error?: string };
       if (!res.ok || !data.audioUrl) {
@@ -423,9 +424,23 @@ export default function Results({ state, update, person, onBackHome, pushToast }
           Generate an audio briefing to listen to on your way to the meeting. Also emails it to you.
         </p>
         {commuteStatus === "idle" && (
-          <button className="btn secondary sm" onClick={() => void generateCommute()}>
-            Generate audio briefing
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              className="input"
+              type="email"
+              placeholder="your@email.com"
+              value={commuteEmail}
+              onChange={(e) => setCommuteEmail(e.target.value)}
+              style={{ maxWidth: 240, height: 30, fontSize: 13 }}
+            />
+            <button
+              className="btn secondary sm"
+              onClick={() => void generateCommute()}
+              disabled={!commuteEmail.trim()}
+            >
+              Generate &amp; email audio
+            </button>
+          </div>
         )}
         {commuteStatus === "loading" && (
           <div className="muted" style={{ fontSize: 13 }}>Generating audio… this takes ~15 seconds.</div>

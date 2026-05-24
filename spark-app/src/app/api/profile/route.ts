@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { scrapeProfile, scrapePosts, RawProfile, RawPost } from "@/lib/apify";
 import type { UserProfile } from "@/lib/types";
 
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest) {
       name,
       initials: deriveInitials(name),
       role: formatRole(rawProfile),
-      email: "",
+      email: (await getServerSession(authOptions))?.user?.email ?? "",
       linkedin: handle,
       education: formatEducation(rawProfile),
       recentPosts: formatRecentPosts(rawPosts),
