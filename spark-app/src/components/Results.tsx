@@ -15,6 +15,7 @@ const DOWNVOTE_REASONS = [
 ];
 
 type OutreachStatus = "idle" | "loading" | "done" | "error";
+type CommuteStatus = "idle" | "loading" | "done" | "error";
 
 interface Props {
   state: AppState;
@@ -29,6 +30,8 @@ export default function Results({ state, update, person, onBackHome, pushToast }
   const [removing, setRemoving] = useState<Record<string, boolean>>({});
   const [outreachStatus, setOutreachStatus] = useState<OutreachStatus>("idle");
   const [outreachMessage, setOutreachMessage] = useState("");
+  const [commuteStatus, setCommuteStatus] = useState<CommuteStatus>("idle");
+  const [commuteAudioUrl, setCommuteAudioUrl] = useState("");
 
   const generateOutreach = async () => {
     setOutreachStatus("loading");
@@ -49,6 +52,26 @@ export default function Results({ state, update, person, onBackHome, pushToast }
       setOutreachStatus("done");
     } catch {
       setOutreachStatus("error");
+    }
+  };
+
+  const generateCommute = async () => {
+    setCommuteStatus("loading");
+    try {
+      const res = await fetch("/api/commute", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ person, user: state.user }),
+      });
+      const data = await res.json() as { audioUrl?: string; error?: string };
+      if (!res.ok || !data.audioUrl) {
+        setCommuteStatus("error");
+        return;
+      }
+      setCommuteAudioUrl(data.audioUrl);
+      setCommuteStatus("done");
+    } catch {
+      setCommuteStatus("error");
     }
   };
 
@@ -381,6 +404,61 @@ export default function Results({ state, update, person, onBackHome, pushToast }
               <button className="btn ghost sm" onClick={() => void generateOutreach()}>
                 Regenerate
               </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{
+          marginTop: 16,
+          padding: "24px",
+          border: "1px solid var(--line-2)",
+          borderRadius: "var(--r-2)",
+          background: "var(--surface-2)",
+        }}
+      >
+        <div className="eyebrow" style={{ marginBottom: 10 }}>COMMUTE MODE</div>
+        <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+          Generate an audio briefing to listen to on your way to the meeting. Also emails it to you.
+        </p>
+        {commuteStatus === "idle" && (
+          <button className="btn secondary sm" onClick={() => void generateCommute()}>
+            Generate audio briefing
+          </button>
+        )}
+        {commuteStatus === "loading" && (
+          <div className="muted" style={{ fontSize: 13 }}>Generating audio… this takes ~15 seconds.</div>
+        )}
+        {commuteStatus === "error" && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "var(--bad)" }}>Generation failed.</span>
+            <button className="btn ghost sm" onClick={() => void generateCommute()}>Retry</button>
+          </div>
+        )}
+        {commuteStatus === "done" && commuteAudioUrl && (
+          <div>
+            <audio
+              controls
+              src={commuteAudioUrl}
+              style={{ width: "100%", marginBottom: 12, borderRadius: "var(--r-1)" }}
+            />
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <a
+                href={commuteAudioUrl}
+                download={`icebreaker-${person.handle}.mp3`}
+                className="btn sm secondary"
+              >
+                Download
+              </a>
+              <button className="btn ghost sm" onClick={() => void generateCommute()}>
+                Regenerate
+              </button>
+              {state.user.email && (
+                <span className="muted-2" style={{ fontSize: 11, fontFamily: "JetBrains Mono, monospace" }}>
+                  Emailed to {state.user.email}
+                </span>
+              )}
             </div>
           </div>
         )}
