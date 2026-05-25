@@ -92,9 +92,19 @@ export async function POST(req: NextRequest) {
     const rawPosts: RawPost[] =
       posts.status === "fulfilled" ? posts.value : [];
 
-    if (!rawProfile) {
+    if (profile.status === "rejected") {
+      const reason = profile.reason instanceof Error ? profile.reason.message : String(profile.reason);
+      console.error("[profile] scrapeProfile rejected:", reason);
       return NextResponse.json(
-        { error: "Could not fetch LinkedIn profile. Check the URL and try again." },
+        { error: `LinkedIn scrape failed: ${reason}` },
+        { status: 502 }
+      );
+    }
+
+    if (!rawProfile) {
+      console.error("[profile] scrapeProfile returned empty dataset for handle:", handle);
+      return NextResponse.json(
+        { error: "LinkedIn returned no data for that profile. It may be private, or LinkedIn is rate-limiting this URL. Try again in a few minutes." },
         { status: 502 }
       );
     }

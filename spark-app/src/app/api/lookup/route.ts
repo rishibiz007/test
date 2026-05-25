@@ -76,8 +76,9 @@ export async function POST(req: NextRequest) {
     const snapshot = await scrapeLinkedIn(handle);
     console.log(`[lookup] snapshot profile=${!!snapshot.profile} posts=${snapshot.posts.length}`);
     if (!snapshot.profile && snapshot.posts.length === 0) {
+      console.error("[lookup] Apify returned empty dataset for handle:", handle);
       return NextResponse.json(
-        { error: "Apify returned no profile data. The actor may be misconfigured or rate-limited." },
+        { error: "LinkedIn returned no data for that profile. It may be private or rate-limited — try again in a few minutes, or check the URL is a public profile." },
         { status: 502 }
       );
     }
