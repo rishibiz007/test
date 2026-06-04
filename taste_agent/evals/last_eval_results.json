@@ -1,0 +1,237 @@
+{
+  "A": {
+    "name": "citation_groundedness",
+    "score": 0.9747,
+    "passed": false,
+    "total_citations": 79,
+    "grounded": 77,
+    "hallucinated_count": 2,
+    "hallucinated_numbers": [
+      13250,
+      13433
+    ],
+    "explanation": "77/79 cited issue/discussion numbers exist in the input payload. 2 hallucinated."
+  },
+  "B": {
+    "name": "priority_calibration",
+    "judge_model": "claude-haiku-4-5-20251001",
+    "rows_evaluated": 16,
+    "avg_score_1_to_5": 3.12,
+    "correct": 7,
+    "too_high": 3,
+    "too_low": 6,
+    "per_row": [
+      {
+        "priority": "P0",
+        "theme": "Cost/token correctness",
+        "refs": [
+          12768,
+          13212,
+          13379,
+          13433
+        ],
+        "verdict": "correct",
+        "suggested_priority": "P0",
+        "score": 5,
+        "reasoning": "Two distinct billing bugs affecting core metrics (issues #12768, #13379) show dashboard triple-counting tokens and miscategorizing cached tokens as output\u2014directly causing incorrect cost display for users. Both are recent (May\u2013June 2026), have multiple reports, and represent data correctness failures in a billing-critical observability product, meeting P0 criteria for broken core flows and data loss."
+      },
+      {
+        "priority": "P0",
+        "theme": "PXI agent reliability",
+        "refs": [
+          13512,
+          13513,
+          13514,
+          13569,
+          13580,
+          13599
+        ],
+        "verdict": "correct",
+        "suggested_priority": "P0",
+        "score": 5,
+        "reasoning": "All six cited issues are recent (2026-05-29 to 2026-06-02), directly blocking the core PXI agent feature with cascading failures: hallucinated IDs prevent annotation (13512), opaque errors trap the agent in retry loops (13513), empty inputs crash tool calls (13514), reasoning timeouts fail requests (13569), UI failures break UX (13580), and docs MCP stalls block chat entirely (13599). This is a broken core flow affecting multiple surface areas simultaneously."
+      },
+      {
+        "priority": "P0",
+        "theme": "Sandbox eval safety",
+        "refs": [
+          13313,
+          13365
+        ],
+        "verdict": "correct",
+        "suggested_priority": "P0",
+        "score": 5,
+        "reasoning": "Security/DoS vulnerability affecting 4 of 6 backends with incomplete timeout enforcement post-v16.0 release meets P0 criteria (security + broken core flow). Related issue #13365 confirms active resource exhaustion risk that compounds the threat, justifying immediate critical priority."
+      },
+      {
+        "priority": "P1",
+        "theme": "Self-host startup",
+        "refs": [
+          12941,
+          13382
+        ],
+        "verdict": "correct",
+        "suggested_priority": "P1",
+        "score": 4,
+        "reasoning": "Two distinct startup-blocking bugs affecting self-hosted deployments: (1) SIGILL crash on Apple Silicon with podman is a critical blocker for that user segment, and (2) WASM prefetch blocking startup is a known issue on an active branch with clear severity. Both prevent core functionality at launch, justifying P1 urgency this quarter, though neither shows massive multi-user demand yet (1\u20132 reactions each, recent but limited engagement)."
+      },
+      {
+        "priority": "P1",
+        "theme": "OAuth2 access-token RBAC + per-project RBAC",
+        "refs": [
+          9565,
+          13557
+        ],
+        "verdict": "too_high",
+        "suggested_priority": "P2",
+        "score": 2,
+        "reasoning": "The two cited issues show niche demand (4 reactions on discussion, 1 on issue; only 1 comment on the feature request) from users with specific multi-project + OAuth2 setups. Issue #13557 is marked 'wontfix', signaling past de-prioritization. This is a narrower RBAC enhancement for advanced identity provider configurations, not a widely-requested feature or broken core flow warranting P1."
+      },
+      {
+        "priority": "P1",
+        "theme": "Playground replay & provider parity",
+        "refs": [
+          12971,
+          12975,
+          13626
+        ],
+        "verdict": "correct",
+        "suggested_priority": "P1",
+        "score": 4,
+        "reasoning": "Three recent bugs (May 28 - June 3) affecting core playground replay functionality across multiple providers (Gemini tool calls, Anthropic memory tool, provider-change diffs). Each has engagement (1 reaction + comments) and blocks user workflows, fitting P1 criteria of 'important bugs with workarounds' and 'widely-requested features' for observability product users who rely on playground replay."
+      },
+      {
+        "priority": "P1",
+        "theme": "PXI capability epics (staged)",
+        "refs": [
+          13546,
+          13551,
+          13570,
+          13572,
+          13600,
+          13605
+        ],
+        "verdict": "too_low",
+        "suggested_priority": "P0",
+        "score": 2,
+        "reasoning": "This is a multi-epic capability initiative (Playground Tools & Skills + Tracing Skills) that gates core agent autonomy features needed for end-to-end prompt optimization flows. The cited issues are all recent (June 2026), have roadmap labels, and represent foundational infrastructure (annotation configs, tool_choice control, dataset integration) that multiple downstream features depend on. Describing this as P1 ('high this quarter') understates its strategic importance as a gating epic for agent capabilities."
+      },
+      {
+        "priority": "P1",
+        "theme": "Multi-hop / agent evals",
+        "refs": [
+          12552,
+          13111,
+          13393
+        ],
+        "verdict": "too_high",
+        "suggested_priority": "P2",
+        "score": 2,
+        "reasoning": "The three cited items show niche demand (1\u20138 comments, 0\u20131 reactions each) from what appear to be individual power users working on advanced agent/RAG eval workflows, not widely-requested core gaps blocking multiple teams. While the span-level context-quality feature (#12552) has some traction, the GPA evaluator request is single-asker with zero engagement, and the multi-turn eval question is a support/workflow Q&A, not a feature gap. These belong in P2 (nice-to-haves with real but narrower demand) rather than P1 (widely-requested, blocking multiple loud users)."
+      },
+      {
+        "priority": "P1",
+        "theme": "OTel GenAI semconv leadership",
+        "refs": [
+          13041,
+          13521
+        ],
+        "verdict": "too_high",
+        "suggested_priority": "P2",
+        "score": 2,
+        "reasoning": "The RFC discussion (13041) shows minimal engagement (1 reaction, 3 comments) and no blocking urgency for Phoenix users. Issue 13521 is a documentation/integration question from a single user, not a widely-requested feature or critical blocker. P1 should be reserved for high-volume demand or core platform issues; this reads as a nice-to-have strategic alignment task better suited to P2."
+      },
+      {
+        "priority": "P2",
+        "theme": "Cost API & per-project breakdown",
+        "refs": [
+          11006,
+          11472
+        ],
+        "verdict": "too_low",
+        "suggested_priority": "P1",
+        "score": 2,
+        "reasoning": "The first issue (11006) is a direct, recent feature request from an active user who needs cost/token data via API for their own product's cost tracking\u2014a core observability use case. While engagement metrics are modest (1 reaction, 2 comments), this is a functional gap blocking a user's ability to expose cost data to their customers. The second cited issue is documentation-focused and unrelated. P2 underweights a capability gap that directly enables cost visibility, which is central to observability product value; this should be P1 for this quarter."
+      },
+      {
+        "priority": "P2",
+        "theme": "External tools client-side tracing",
+        "refs": [
+          13173
+        ],
+        "verdict": "too_low",
+        "suggested_priority": "P1",
+        "score": 2,
+        "reasoning": "This is a regression in observability coverage for a core product feature (tool tracing), affecting multiple built-in tools used by the AI SDK/browser. The issue explicitly references a commit that 'ripped' backend TOOL spans, indicating broken functionality rather than a new feature request\u2014core observability gaps warrant P1 as a widely-impactful bug with workaround limitations."
+      },
+      {
+        "priority": "P2",
+        "theme": "Integration breadth",
+        "refs": [
+          9333,
+          10847,
+          11153,
+          13482
+        ],
+        "verdict": "too_low",
+        "suggested_priority": "P1",
+        "score": 2,
+        "reasoning": "While individual issues are lightly engaged (1-2 reactions each), the theme clusters four distinct integration requests spanning encryption, gateway support, and database breadth\u2014reflecting systematic gaps in observability coverage. The recency of Claude Code (Apr 2026) and Envoy Gateway (Jan 2026) discussions, combined with explicit user friction on read-only span attributes and deployment blockers, suggests this addresses real workflow problems for multiple users and warrants P1 (important gaps with demand across themes) rather than P2 (narrow nice-to-haves)."
+      },
+      {
+        "priority": "P2",
+        "theme": "Onboarding/UX friction",
+        "refs": [
+          9940,
+          9971,
+          13394
+        ],
+        "verdict": "too_low",
+        "suggested_priority": "P1",
+        "score": 2,
+        "reasoning": "While individually these are narrow UX issues, the save-prompt error (9940) and hostname/collector confusion (9971) represent broken onboarding friction that directly blocks new user adoption\u2014both marked stale despite clear product clarity gaps. The tutorial bug (13394) is lower priority, but the first two warrant P1 as barriers to core setup flows."
+      },
+      {
+        "priority": "P2",
+        "theme": "PXI UX polish (themed)",
+        "refs": [
+          13304,
+          13428,
+          13594,
+          13598,
+          13627
+        ],
+        "verdict": "too_low",
+        "suggested_priority": "P1",
+        "score": 2,
+        "reasoning": "All five cited issues are UI/UX polish items with single reactions each and zero comments, fitting P2 criteria on surface. However, the pattern suggests these are core interaction bugs affecting the primary PXI input flow (focus regression, modal layering breaking sidebar attachment, layout thrashing on tool calls) rather than nice-to-haves\u2014these directly obstruct the core agent chat experience. Recent recency (late May\u2013early June) and consistent UI label concentration indicate active pain, warranting P1 for this quarter."
+      },
+      {
+        "priority": "P3",
+        "theme": "Single-asker polish",
+        "refs": [
+          12781,
+          13192,
+          13423,
+          13596
+        ],
+        "verdict": "correct",
+        "suggested_priority": "P3",
+        "score": 5,
+        "reasoning": "All four cited issues are single-asker requests (1 reaction, 0 comments each) with no evidence of blocking users or widespread demand. The features span disconnected domains (evals filtering, time presets, agent branching, custom icons), lack urgency signals (most recent from early June, none flagged critical), and represent UI polish rather than core functionality gaps."
+      },
+      {
+        "priority": "P3",
+        "theme": "Generative charting/UI skill",
+        "refs": [
+          13272,
+          13453
+        ],
+        "verdict": "correct",
+        "suggested_priority": "P3",
+        "score": 4,
+        "reasoning": "Both cited issues are single-asker feature requests (1 reaction, 0 comments each) with no evidence of blocking users or widespread demand. The generative charting/UI skill is a nice-to-have enhancement rather than a core observability flow. P3 backlog placement is appropriate."
+      }
+    ]
+  }
+}
