@@ -33,7 +33,7 @@
         "verdict": "correct",
         "suggested_priority": "P0",
         "score": 5,
-        "reasoning": "Two distinct billing bugs affecting core metrics (issues #12768, #13379) show dashboard triple-counting tokens and miscategorizing cached tokens as output\u2014directly causing incorrect cost display for users. Both are recent (May\u2013June 2026), have multiple reports, and represent data correctness failures in a billing-critical observability product, meeting P0 criteria for broken core flows and data loss."
+        "reasoning": "Multiple billing/metrics bugs affecting customer-facing costs (triple-counting on dashboard, cached tokens miscategorized as output) with recent activity (June 2026) and direct financial impact on users. This is critical data correctness affecting pricing visibility and trust, unambiguously P0."
       },
       {
         "priority": "P0",
@@ -49,7 +49,7 @@
         "verdict": "correct",
         "suggested_priority": "P0",
         "score": 5,
-        "reasoning": "All six cited issues are recent (2026-05-29 to 2026-06-02), directly blocking the core PXI agent feature with cascading failures: hallucinated IDs prevent annotation (13512), opaque errors trap the agent in retry loops (13513), empty inputs crash tool calls (13514), reasoning timeouts fail requests (13569), UI failures break UX (13580), and docs MCP stalls block chat entirely (13599). This is a broken core flow affecting multiple surface areas simultaneously."
+        "reasoning": "All six cited issues are recent (May 29\u2013June 2, 2026), blocking core PXI agent functionality with cascading failures: hallucinated IDs trigger opaque GraphQL errors that reinforce hallucination loops, empty tool inputs fail parsing, reasoning-model timeouts prevent completion, and docs-MCP stalls break chat entirely. These are not edge cases\u2014they are systemic reliability blockers affecting the primary observability agent, warranting immediate P0 treatment."
       },
       {
         "priority": "P0",
@@ -61,7 +61,7 @@
         "verdict": "correct",
         "suggested_priority": "P0",
         "score": 5,
-        "reasoning": "Security/DoS vulnerability affecting 4 of 6 backends with incomplete timeout enforcement post-v16.0 release meets P0 criteria (security + broken core flow). Related issue #13365 confirms active resource exhaustion risk that compounds the threat, justifying immediate critical priority."
+        "reasoning": "Timeout enforcement gap across 4/6 backends is a clear security/DoS vulnerability in a sandbox product\u2014fits the P0 definition of 'security' and 'broken core flows.' The companion issue (#13365) on resource-aware admission confirms this is a systemic problem, not isolated, and both are recent (May 2026) with server/sandbox labels indicating production impact."
       },
       {
         "priority": "P1",
@@ -73,7 +73,7 @@
         "verdict": "correct",
         "suggested_priority": "P1",
         "score": 4,
-        "reasoning": "Two distinct startup-blocking bugs affecting self-hosted deployments: (1) SIGILL crash on Apple Silicon with podman is a critical blocker for that user segment, and (2) WASM prefetch blocking startup is a known issue on an active branch with clear severity. Both prevent core functionality at launch, justifying P1 urgency this quarter, though neither shows massive multi-user demand yet (1\u20132 reactions each, recent but limited engagement)."
+        "reasoning": "Two distinct startup blockers affecting self-hosted deployments: Apple Silicon SIGILL prevents container launch entirely (1 reaction, recent), and WASM prefetch blocks startup on fresh environments (2 reactions, very recent, marked blocked). Together these represent critical path failures for self-host users, warranting P1 this quarter."
       },
       {
         "priority": "P1",
@@ -85,7 +85,7 @@
         "verdict": "too_high",
         "suggested_priority": "P2",
         "score": 2,
-        "reasoning": "The two cited issues show niche demand (4 reactions on discussion, 1 on issue; only 1 comment on the feature request) from users with specific multi-project + OAuth2 setups. Issue #13557 is marked 'wontfix', signaling past de-prioritization. This is a narrower RBAC enhancement for advanced identity provider configurations, not a widely-requested feature or broken core flow warranting P1."
+        "reasoning": "Issue #13557 is marked 'wontfix' and has minimal engagement (1 reaction, 4 comments); discussion #9565 is a generic Ideas request with only 4 reactions and 1 comment from 9+ months ago. Neither shows broad demand, blocking usage, or urgency typical of P1 'widely-requested' features\u2014this reads as a narrower architectural enhancement for a specific use-case subset."
       },
       {
         "priority": "P1",
@@ -98,7 +98,7 @@
         "verdict": "correct",
         "suggested_priority": "P1",
         "score": 4,
-        "reasoning": "Three recent bugs (May 28 - June 3) affecting core playground replay functionality across multiple providers (Gemini tool calls, Anthropic memory tool, provider-change diffs). Each has engagement (1 reaction + comments) and blocks user workflows, fitting P1 criteria of 'important bugs with workarounds' and 'widely-requested features' for observability product users who rely on playground replay."
+        "reasoning": "Three recent bugs (May 28\u2013Jun 3) affecting core playground replay workflows across multiple providers (Gemini tool calls, Anthropic memory tool, provider-change diffs), each with engagement signals and clear user friction. These are blocking expected workflows rather than edge cases, warranting P1 this quarter."
       },
       {
         "priority": "P1",
@@ -114,7 +114,7 @@
         "verdict": "too_low",
         "suggested_priority": "P0",
         "score": 2,
-        "reasoning": "This is a multi-epic capability initiative (Playground Tools & Skills + Tracing Skills) that gates core agent autonomy features needed for end-to-end prompt optimization flows. The cited issues are all recent (June 2026), have roadmap labels, and represent foundational infrastructure (annotation configs, tool_choice control, dataset integration) that multiple downstream features depend on. Describing this as P1 ('high this quarter') understates its strategic importance as a gating epic for agent capabilities."
+        "reasoning": "This represents gated epics (Playground Tools & Skills, Tracing Skills) that unlock core agent capabilities for PXI\u2014the product's own agent. The issues span dataset binding, prompt optimization workflows, annotation configs, and tool choice control. With multiple interconnected features, roadmap labels, and recent activity (June 2026), this is foundational infrastructure blocking downstream agent functionality, not a P1 nice-to-have. The PM's own framing ('gate on quality') suggests this is prerequisite work, not secondary this quarter."
       },
       {
         "priority": "P1",
@@ -127,7 +127,7 @@
         "verdict": "too_high",
         "suggested_priority": "P2",
         "score": 2,
-        "reasoning": "The three cited items show niche demand (1\u20138 comments, 0\u20131 reactions each) from what appear to be individual power users working on advanced agent/RAG eval workflows, not widely-requested core gaps blocking multiple teams. While the span-level context-quality feature (#12552) has some traction, the GPA evaluator request is single-asker with zero engagement, and the multi-turn eval question is a support/workflow Q&A, not a feature gap. These belong in P2 (nice-to-haves with real but narrower demand) rather than P1 (widely-requested, blocking multiple loud users)."
+        "reasoning": "While span-level eval (12552) shows real engagement (8 comments, recent), the cited evidence is thin: only 1 reaction per issue, GPA evaluators (13111) has zero comments, and the multi-turn eval discussion (13393) is a single Q&A with minimal traction (1 comment). This reads as specialized agent/eval tooling with narrow demand, not a widely-requested P1 that blocks multiple loud users or represents a top theme across discussions."
       },
       {
         "priority": "P1",
@@ -139,7 +139,7 @@
         "verdict": "too_high",
         "suggested_priority": "P2",
         "score": 2,
-        "reasoning": "The RFC discussion (13041) shows minimal engagement (1 reaction, 3 comments) and no blocking urgency for Phoenix users. Issue 13521 is a documentation/integration question from a single user, not a widely-requested feature or critical blocker. P1 should be reserved for high-volume demand or core platform issues; this reads as a nice-to-have strategic alignment task better suited to P2."
+        "reasoning": "The RFC discussion (13041) has minimal engagement (1 reaction, 3 comments) and is a forward-looking standards initiative rather than a blocking user need. Issue 13521 is a single integrations question (1 comment) labeled as documentation/triage, not evidence of widespread demand. Neither item indicates urgent blocking of multiple users or critical quarterly OKRs; this is standards participation and narrower documentation work suitable for P2."
       },
       {
         "priority": "P2",
@@ -151,7 +151,7 @@
         "verdict": "too_low",
         "suggested_priority": "P1",
         "score": 2,
-        "reasoning": "The first issue (11006) is a direct, recent feature request from an active user who needs cost/token data via API for their own product's cost tracking\u2014a core observability use case. While engagement metrics are modest (1 reaction, 2 comments), this is a functional gap blocking a user's ability to expose cost data to their customers. The second cited issue is documentation-focused and unrelated. P2 underweights a capability gap that directly enables cost visibility, which is central to observability product value; this should be P1 for this quarter."
+        "reasoning": "The first issue (#11006) is a direct, specific API feature request from a user with legitimate need (per-project cost breakdown for multi-tenant applications), but the PM only cited 1 reaction and 2 comments on a discussion\u2014treating it as narrow demand. However, cost visibility per project is a core observability workflow that likely affects multiple customers managing shared infrastructure. The second cited issue (#11472) is documentation about RAG failure modes, unrelated to the cost API feature, suggesting weak issue curation. P2 undersells what should be a P1 quarterly goal if even one customer is blocked on cost allocation/chargeback."
       },
       {
         "priority": "P2",
@@ -162,7 +162,7 @@
         "verdict": "too_low",
         "suggested_priority": "P1",
         "score": 2,
-        "reasoning": "This is a regression in observability coverage for a core product feature (tool tracing), affecting multiple built-in tools used by the AI SDK/browser. The issue explicitly references a commit that 'ripped' backend TOOL spans, indicating broken functionality rather than a new feature request\u2014core observability gaps warrant P1 as a widely-impactful bug with workaround limitations."
+        "reasoning": "This is a data loss issue (lost backend TOOL spans) affecting core observability functionality for a widely-used feature (external tools in agents), not merely a nice-to-have. The fact that an entire class of tool executions stopped being traced after a migration (commit 71ceeb3) qualifies as a regression impacting the product's core value proposition\u2014observing LLM execution\u2014and should be P1 (high this quarter) rather than P2."
       },
       {
         "priority": "P2",
@@ -176,7 +176,7 @@
         "verdict": "too_low",
         "suggested_priority": "P1",
         "score": 2,
-        "reasoning": "While individual issues are lightly engaged (1-2 reactions each), the theme clusters four distinct integration requests spanning encryption, gateway support, and database breadth\u2014reflecting systematic gaps in observability coverage. The recency of Claude Code (Apr 2026) and Envoy Gateway (Jan 2026) discussions, combined with explicit user friction on read-only span attributes and deployment blockers, suggests this addresses real workflow problems for multiple users and warrants P1 (important gaps with demand across themes) rather than P2 (narrow nice-to-haves)."
+        "reasoning": "While individual asks are narrow (1\u20132 reactions each), the cluster reveals systemic integration gaps across high-demand platforms: Claude Code (Anthropic's AI agent with native OTEL support), Envoy Gateway (Kubernetes standard), and encryption-at-source (security/compliance blocker). The recency span (Sept 2025\u2013June 2026) and 'user request'/'integration' labels indicate ongoing demand. This isn't polish\u2014it's core observability infrastructure gaps affecting multiple loud users trying to connect enterprise systems to Phoenix."
       },
       {
         "priority": "P2",
@@ -189,7 +189,7 @@
         "verdict": "too_low",
         "suggested_priority": "P1",
         "score": 2,
-        "reasoning": "While individually these are narrow UX issues, the save-prompt error (9940) and hostname/collector confusion (9971) represent broken onboarding friction that directly blocks new user adoption\u2014both marked stale despite clear product clarity gaps. The tutorial bug (13394) is lower priority, but the first two warrant P1 as barriers to core setup flows."
+        "reasoning": "While individually low-signal (1\u20132 reactions each, sparse comments), these three issues collectively represent friction across core onboarding paths (setup, prompts, tutorials). The hostname/collector confusion (#9971) is a documented knowledge gap that's already required doc workarounds; the save-prompt error (#9940) blocks a primary feature with poor UX; the tutorial bug (#13394) directly breaks getting-started experience. Together, these warrant P1 as a cohesive onboarding theme affecting new user conversion, not P2 polish."
       },
       {
         "priority": "P2",
@@ -204,7 +204,7 @@
         "verdict": "too_low",
         "suggested_priority": "P1",
         "score": 2,
-        "reasoning": "All five cited issues are UI/UX polish items with single reactions each and zero comments, fitting P2 criteria on surface. However, the pattern suggests these are core interaction bugs affecting the primary PXI input flow (focus regression, modal layering breaking sidebar attachment, layout thrashing on tool calls) rather than nice-to-haves\u2014these directly obstruct the core agent chat experience. Recent recency (late May\u2013early June) and consistent UI label concentration indicate active pain, warranting P1 for this quarter."
+        "reasoning": "While individual issues show low engagement (1 reaction, 0 comments each), they represent a cohesive UX pattern affecting core PXI interaction\u2014focus management, modal layering, and command entry are foundational to usability, not polish. Recent clustering (all within 1 week in early June) and consistent enhancement labels suggest active user frustration with baseline interaction patterns that should be P1 'widely-requested' or workflow-blocking rather than P2 'nice-to-have'."
       },
       {
         "priority": "P3",
@@ -218,7 +218,7 @@
         "verdict": "correct",
         "suggested_priority": "P3",
         "score": 5,
-        "reasoning": "All four cited issues are single-asker requests (1 reaction, 0 comments each) with no evidence of blocking users or widespread demand. The features span disconnected domains (evals filtering, time presets, agent branching, custom icons), lack urgency signals (most recent from early June, none flagged critical), and represent UI polish rather than core functionality gaps."
+        "reasoning": "All four items are single-asker features (1 reaction, 0 comments each) with minimal engagement and recent creation dates. None address core observability workflows, data loss, security, or widespread user blockers; they are purely UI polish and nice-to-haves scattered across evals, time-range selection, agent branching, and icons\u2014textbook P3 backlog material."
       },
       {
         "priority": "P3",
@@ -230,8 +230,88 @@
         "verdict": "correct",
         "suggested_priority": "P3",
         "score": 4,
-        "reasoning": "Both cited issues are single-asker feature requests (1 reaction, 0 comments each) with no evidence of blocking users or widespread demand. The generative charting/UI skill is a nice-to-have enhancement rather than a core observability flow. P3 backlog placement is appropriate."
+        "reasoning": "Both cited issues are enhancement requests with minimal engagement (1 reaction, 0 comments each) and no evidence of blocking users or widespread demand. This is a speculative generative UI capability with single-asker signal, fitting P3 backlog criteria perfectly."
       }
     ]
+  },
+  "C": {
+    "name": "top_signal_coverage",
+    "score": 0.85,
+    "passed": true,
+    "k": 20,
+    "mentioned_count": 17,
+    "missed_count": 3,
+    "missed_items": [
+      {
+        "number": 13487,
+        "score": 6.81,
+        "kind": "other",
+        "title": "Question: distinguishing agent-reported completion from system-returned proof"
+      },
+      {
+        "number": 13604,
+        "score": 6.0,
+        "kind": "feature",
+        "title": "[agents][playground] Toggle record-as-experiment"
+      },
+      {
+        "number": 12841,
+        "score": 5.96,
+        "kind": "other",
+        "title": "Best practice for tenant-scoped IDs (Where to put them up in the spans??) with A"
+      }
+    ],
+    "explanation": "17/20 of the top-scored input items are mentioned in the report. 3 top items were skipped."
+  },
+  "D": {
+    "name": "structure_compliance",
+    "score": 1.0,
+    "passed": true,
+    "required_count": 7,
+    "present": [
+      "Executive Summary",
+      "Recent Release Context",
+      "Top Pain Points",
+      "Top Feature Asks",
+      "Cross-Cutting Themes",
+      "Prioritized Backlog",
+      "Notable Single-Asker Asks"
+    ],
+    "missing": [],
+    "explanation": "7/7 required H2 sections present. All present."
+  },
+  "E": {
+    "name": "bug_vs_feature_classification",
+    "score": 0.94,
+    "passed": true,
+    "total_evaluated": 50,
+    "total_correct": 47,
+    "pain_points_under_section": 23,
+    "pain_points_classifier_label_bug": 16,
+    "pain_points_classifier_label_feature": 3,
+    "feature_asks_under_section": 36,
+    "feature_asks_classifier_label_feature": 31,
+    "feature_asks_classifier_label_bug": 0,
+    "disagreements": {
+      "pain_points_classified_as_feature": [
+        {
+          "number": 9971,
+          "kind": "feature",
+          "title": "[enhancement] clarify what is host endpoint, api key, collector?"
+        },
+        {
+          "number": 13599,
+          "kind": "feature",
+          "title": "Docs MCP: assistant turn fails per-request when the docs host is unreachable (ch"
+        },
+        {
+          "number": 13609,
+          "kind": "feature",
+          "title": "PXI: dumps raw resource IDs instead of actionable links in responses"
+        }
+      ],
+      "feature_asks_classified_as_bug": []
+    },
+    "explanation": "Of 50 citations under Pain Points / Feature Asks with a definitive bug/feature label from the deterministic classifier, 47 agree with the report's grouping."
   }
 }

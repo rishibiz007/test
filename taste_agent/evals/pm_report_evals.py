@@ -36,6 +36,22 @@ REPORT_PATH = REPO_ROOT / "phoenix_pm_report.md"
 JUDGE_MODEL = "claude-haiku-4-5-20251001"
 CITATION_RE = re.compile(r"#(\d{2,6})")
 
+TOP_K = 20
+
+REQUIRED_SECTIONS = [
+    "Executive Summary",
+    "Recent Release Context",
+    "Top Pain Points",
+    "Top Feature Asks",
+    "Cross-Cutting Themes",
+    "Prioritized Backlog",
+    "Notable Single-Asker Asks",
+]
+
+# For eval E: which report section each citation lives under.
+PAIN_POINTS_SECTION = "Top Pain Points"
+FEATURE_ASKS_SECTION = "Top Feature Asks"
+
 # Matches rows in the Prioritized Backlog markdown table.
 # Captures: priority tag, theme, summary, refs cell.
 BACKLOG_ROW_RE = re.compile(
@@ -69,6 +85,37 @@ def build_known_numbers(raw: dict[str, Any]) -> dict[int, dict[str, Any]]:
         # discussions and issues share number space — issue wins if collision
         known.setdefault(item["number"], {**item, "source": "discussion"})
     return known
+
+
+# ---------------------------------------------------------------------------
+# Section splitter (shared by D + E)
+# ---------------------------------------------------------------------------
+
+def split_by_h2(report: str) -> dict[str, str]:
+    """Return {section_title: section_body} for every H2 in the report."""
+    sections: dict[str, str] = {}
+    current_title: str | None = None
+    current_lines: list[str] = []
+    for line in report.splitlines():
+        if line.startswith("## ") and not line.startswith("### "):
+            if current_title is not None:
+                sections[current_title] = "\n".join(current_lines)
+            current_title = line[3:].strip()
+            current_lines = []
+        else:
+            current_lines.append(line)
+    if current_title is not None:
+        sections[current_title] = "\n".join(current_lines)
+    return sections
+
+
+def find_section(sections: dict[str, str], needle: str) -> str | None:
+    """Find the first section whose title starts with `needle` (case-insensitive)."""
+    needle_l = needle.lower()
+    for title, body in sections.items():
+        if title.lower().startswith(needle_l):
+            return body
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +274,133 @@ def eval_priority_calibration(report: str, raw: dict[str, Any], anth_key: str) -
 
 
 # ---------------------------------------------------------------------------
+# Eval C: top-signal coverage
+# ---------------------------------------------------------------------------
+
+def eval_top_signal_coverage(report: str, raw: dict[str, Any], k: int = TOP_K) -> dict[str, Any]:
+    """Of the top-K highest-scored input items, what fraction appear in the report?"""
+    pool = [(i["score"], i["number"], i["kind"], i["title"]) for i in raw.get("issues", [])]
+    pool += [(d["score"], d["number"], d["kind"], d["title"]) for d in raw.get("discussions", [])]
+    pool.sort(key=lambda t: t[0], reverse=True)
+    top = pool[:k]
+
+    cited_nums = set(int(m.group(1)) for m in CITATION_RE.finditer(report))
+    mentioned = [t for t in top if t[1] in cited_nums]
+    missed = [t for t in top if t[1] not in cited_nums]
+
+    score = round(len(mentioned) / k, 4) if k else 1.0
+    return {
+        "name": "top_signal_coverage",
+        "score": score,
+        "passed": score >= 0.8,
+        "k": k,
+        "mentioned_count": len(mentioned),
+        "missed_count": len(missed),
+        "missed_items": [
+            {"number": n, "score": s, "kind": kind, "title": title[:80]}
+            for s, n, kind, title in missed
+        ],
+        "explanation": (
+            f"{len(mentioned)}/{k} of the top-scored input items are mentioned "
+            f"in the report. {len(missed)} top items were skipped."
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Eval D: structure compliance
+# ---------------------------------------------------------------------------
+
+def eval_structure_compliance(report: str) -> dict[str, Any]:
+    sections = split_by_h2(report)
+    present = []
+    missing = []
+    for required in REQUIRED_SECTIONS:
+        if find_section(sections, required) is not None:
+            present.append(required)
+        else:
+            missing.append(required)
+    total = len(REQUIRED_SECTIONS)
+    score = round(len(present) / total, 4) if total else 1.0
+    return {
+        "name": "structure_compliance",
+        "score": score,
+        "passed": score == 1.0,
+        "required_count": total,
+        "present": present,
+        "missing": missing,
+        "explanation": (
+            f"{len(present)}/{total} required H2 sections present. "
+            + (f"Missing: {', '.join(missing)}." if missing else "All present.")
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Eval E: bug-vs-feature classification agreement
+# ---------------------------------------------------------------------------
+
+def _cited_in(section_body: str, known: dict[int, dict[str, Any]]) -> list[dict[str, Any]]:
+    nums = sorted(set(int(m.group(1)) for m in CITATION_RE.finditer(section_body)))
+    return [{"number": n, **known[n]} for n in nums if n in known]
+
+
+def eval_bug_vs_feature_classification(report: str, known: dict[int, dict[str, Any]]) -> dict[str, Any]:
+    """Agreement between the report's grouping and the deterministic kind tag.
+
+    Citations under "Top Pain Points" are expected to map to items the
+    deterministic scorer labeled `bug`; "Top Feature Asks" should map to
+    `feature`. Items labeled `other` are excluded from the denominator
+    (the keyword-based classifier is too coarse to be authoritative there).
+    """
+    sections = split_by_h2(report)
+    pain_body = find_section(sections, PAIN_POINTS_SECTION) or ""
+    feat_body = find_section(sections, FEATURE_ASKS_SECTION) or ""
+
+    pain_items = _cited_in(pain_body, known)
+    feat_items = _cited_in(feat_body, known)
+
+    pain_eval = [i for i in pain_items if i.get("kind") in ("bug", "feature")]
+    feat_eval = [i for i in feat_items if i.get("kind") in ("bug", "feature")]
+
+    pain_correct = [i for i in pain_eval if i["kind"] == "bug"]
+    pain_wrong = [i for i in pain_eval if i["kind"] == "feature"]
+    feat_correct = [i for i in feat_eval if i["kind"] == "feature"]
+    feat_wrong = [i for i in feat_eval if i["kind"] == "bug"]
+
+    total_eval = len(pain_eval) + len(feat_eval)
+    total_correct = len(pain_correct) + len(feat_correct)
+    score = round(total_correct / total_eval, 4) if total_eval else 1.0
+
+    def _strip(items):
+        return [{"number": i["number"], "kind": i["kind"], "title": (i.get("title") or "")[:80]}
+                for i in items]
+
+    return {
+        "name": "bug_vs_feature_classification",
+        "score": score,
+        "passed": score >= 0.8,
+        "total_evaluated": total_eval,
+        "total_correct": total_correct,
+        "pain_points_under_section": len(pain_items),
+        "pain_points_classifier_label_bug": len(pain_correct),
+        "pain_points_classifier_label_feature": len(pain_wrong),
+        "feature_asks_under_section": len(feat_items),
+        "feature_asks_classifier_label_feature": len(feat_correct),
+        "feature_asks_classifier_label_bug": len(feat_wrong),
+        "disagreements": {
+            "pain_points_classified_as_feature": _strip(pain_wrong),
+            "feature_asks_classified_as_bug": _strip(feat_wrong),
+        },
+        "explanation": (
+            f"Of {total_eval} citations under Pain Points / Feature Asks with a "
+            f"definitive bug/feature label from the deterministic classifier, "
+            f"{total_correct} agree with the report's grouping."
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Tracing helpers
 # ---------------------------------------------------------------------------
 
@@ -242,7 +416,9 @@ def log_evaluator_span(tracer, name: str, result: dict[str, Any]) -> None:
         if score is not None:
             span.set_attribute("eval.score", float(score))
         for k in ("total_citations", "grounded", "hallucinated_count",
-                  "rows_evaluated", "correct", "too_high", "too_low"):
+                  "rows_evaluated", "correct", "too_high", "too_low",
+                  "k", "mentioned_count", "missed_count",
+                  "required_count", "total_evaluated", "total_correct"):
             if k in result and result[k] is not None:
                 span.set_attribute(f"eval.{k}", result[k])
         span.set_attribute(SpanAttributes.OUTPUT_VALUE, json.dumps(result)[:4000])
@@ -264,7 +440,8 @@ def get_anthropic_key() -> str:
     sys.exit("ERROR: no ANTHROPIC_API_KEY.")
 
 
-def print_scoreboard(a: dict[str, Any], b: dict[str, Any]) -> None:
+def print_scoreboard(a: dict[str, Any], b: dict[str, Any],
+                     c: dict[str, Any], d: dict[str, Any], e: dict[str, Any]) -> None:
     print()
     print("=" * 78)
     print(" Phoenix PM Agent — Eval Scoreboard")
@@ -280,7 +457,6 @@ def print_scoreboard(a: dict[str, Any], b: dict[str, Any]) -> None:
           f"({b['correct']} correct, {b['too_high']} too-high, {b['too_low']} too-low "
           f"out of {b['rows_evaluated']})")
     print(f"    judge: {b['judge_model']}")
-    print()
     print("    Per-row verdicts:")
     for row in b["per_row"]:
         score = row.get("score")
@@ -289,6 +465,31 @@ def print_scoreboard(a: dict[str, Any], b: dict[str, Any]) -> None:
         suggested = row.get("suggested_priority", "")
         sug_s = f" -> {suggested}" if suggested and suggested != row["priority"] else ""
         print(f"      {row['priority']}{sug_s:<6}  {score_s:<6}  {verdict:<12}  {row['theme'][:50]}")
+
+    print(f"\n[C] top_signal_coverage (top-{c['k']}): {c['score']:.2%}  "
+          f"({c['mentioned_count']}/{c['k']} mentioned, {c['missed_count']} missed)")
+    if c["missed_items"]:
+        print("    missed top items:")
+        for item in c["missed_items"][:10]:
+            print(f"      #{item['number']:<6} ({item['kind']:<7}) score={item['score']:<6.2f}  {item['title']}")
+
+    print(f"\n[D] structure_compliance: {d['score']:.2%}  "
+          f"({len(d['present'])}/{d['required_count']} required H2 sections)")
+    if d["missing"]:
+        print(f"    missing: {', '.join(d['missing'])}")
+
+    print(f"\n[E] bug_vs_feature_classification: {e['score']:.2%}  "
+          f"({e['total_correct']}/{e['total_evaluated']} agree with deterministic classifier)")
+    pain_d = e["disagreements"]["pain_points_classified_as_feature"]
+    feat_d = e["disagreements"]["feature_asks_classified_as_bug"]
+    if pain_d:
+        print(f"    under Pain Points but classifier said `feature`:")
+        for i in pain_d[:8]:
+            print(f"      #{i['number']:<6}  {i['title']}")
+    if feat_d:
+        print(f"    under Feature Asks but classifier said `bug`:")
+        for i in feat_d[:8]:
+            print(f"      #{i['number']:<6}  {i['title']}")
     print()
 
 
@@ -318,20 +519,38 @@ def main() -> None:
         result_a = eval_citation_groundedness(report, known)
         log_evaluator_span(tracer, "citation_groundedness", result_a)
 
+        print("running eval C: top_signal_coverage ...", file=sys.stderr)
+        result_c = eval_top_signal_coverage(report, raw, k=TOP_K)
+        log_evaluator_span(tracer, "top_signal_coverage", result_c)
+
+        print("running eval D: structure_compliance ...", file=sys.stderr)
+        result_d = eval_structure_compliance(report)
+        log_evaluator_span(tracer, "structure_compliance", result_d)
+
+        print("running eval E: bug_vs_feature_classification ...", file=sys.stderr)
+        result_e = eval_bug_vs_feature_classification(report, known)
+        log_evaluator_span(tracer, "bug_vs_feature_classification", result_e)
+
         print("running eval B: priority_calibration (LLM judge) ...", file=sys.stderr)
         result_b = eval_priority_calibration(report, raw, anth_key)
         log_evaluator_span(tracer, "priority_calibration", result_b)
 
         root.set_attribute("eval.citation_groundedness", float(result_a["score"]))
+        root.set_attribute("eval.top_signal_coverage", float(result_c["score"]))
+        root.set_attribute("eval.structure_compliance", float(result_d["score"]))
+        root.set_attribute("eval.bug_vs_feature_classification", float(result_e["score"]))
         if result_b["avg_score_1_to_5"] is not None:
             root.set_attribute("eval.priority_calibration_avg", float(result_b["avg_score_1_to_5"]))
 
     shutdown_tracing(tracer_provider)
-    print_scoreboard(result_a, result_b)
+    print_scoreboard(result_a, result_b, result_c, result_d, result_e)
 
     # also dump full results for the curious
     out_path = REPO_ROOT / "evals" / "last_eval_results.json"
-    out_path.write_text(json.dumps({"A": result_a, "B": result_b}, indent=2))
+    out_path.write_text(json.dumps(
+        {"A": result_a, "B": result_b, "C": result_c, "D": result_d, "E": result_e},
+        indent=2,
+    ))
     print(f"full results -> {out_path}", file=sys.stderr)
 
 
