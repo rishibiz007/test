@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { MindStudioAgent } from "@mindstudio-ai/agent";
 import type { Person, UserProfile } from "@/lib/types";
 
+function describeError(err: unknown): string {
+  if (err && typeof err === "object" && "code" in err) {
+    const e = err as { message?: string; code?: string; status?: number; details?: unknown };
+    const detail = e.details ? JSON.stringify(e.details).slice(0, 600) : "";
+    const status = e.status ? ` (HTTP ${e.status})` : "";
+    return `[${e.code ?? "unknown"}]${status} ${e.message ?? ""}${detail ? ` — details: ${detail}` : ""}`.trim();
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
 function buildScript(person: Person, user: UserProfile): string {
   const userFirst = user.name.split(" ")[0];
   const lines: string[] = [
@@ -42,7 +52,7 @@ export async function POST(req: NextRequest) {
     const tts = await agent.textToSpeech({ text: script });
     audioUrl = tts.audioUrl;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = describeError(err);
     console.error("[commute] TTS failed:", message);
     return NextResponse.json(
       { error: `Audio generation failed: ${message}`, stage: "tts" },
@@ -70,7 +80,7 @@ export async function POST(req: NextRequest) {
         ].join("\n"),
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = describeError(err);
       console.error("[commute] email send failed:", message);
       emailWarning = `Audio generated, but email failed: ${message}`;
     }
