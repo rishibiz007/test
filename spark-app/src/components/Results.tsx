@@ -33,6 +33,8 @@ export default function Results({ state, update, person, onBackHome, pushToast }
   const [commuteStatus, setCommuteStatus] = useState<CommuteStatus>("idle");
   const [commuteAudioUrl, setCommuteAudioUrl] = useState("");
   const [commuteEmail, setCommuteEmail] = useState(state.user.email || "");
+  const [commuteError, setCommuteError] = useState("");
+  const [commuteEmailWarning, setCommuteEmailWarning] = useState("");
 
   const generateOutreach = async () => {
     setOutreachStatus("loading");
@@ -58,20 +60,25 @@ export default function Results({ state, update, person, onBackHome, pushToast }
 
   const generateCommute = async () => {
     setCommuteStatus("loading");
+    setCommuteError("");
+    setCommuteEmailWarning("");
     try {
       const res = await fetch("/api/commute", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ person, user: { ...state.user, email: commuteEmail } }),
       });
-      const data = await res.json() as { audioUrl?: string; error?: string };
+      const data = await res.json() as { audioUrl?: string; error?: string; emailWarning?: string };
       if (!res.ok || !data.audioUrl) {
+        setCommuteError(data.error || `Request failed (${res.status}).`);
         setCommuteStatus("error");
         return;
       }
       setCommuteAudioUrl(data.audioUrl);
+      if (data.emailWarning) setCommuteEmailWarning(data.emailWarning);
       setCommuteStatus("done");
-    } catch {
+    } catch (err) {
+      setCommuteError(err instanceof Error ? err.message : "Network error.");
       setCommuteStatus("error");
     }
   };
@@ -446,13 +453,20 @@ export default function Results({ state, update, person, onBackHome, pushToast }
           <div className="muted" style={{ fontSize: 13 }}>Generating audio… this takes ~15 seconds.</div>
         )}
         {commuteStatus === "error" && (
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <span style={{ fontSize: 13, color: "var(--bad)" }}>Generation failed.</span>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, color: "var(--bad)", flex: "1 1 240px", lineHeight: 1.5 }}>
+              {commuteError || "Generation failed."}
+            </span>
             <button className="btn ghost sm" onClick={() => void generateCommute()}>Retry</button>
           </div>
         )}
         {commuteStatus === "done" && commuteAudioUrl && (
           <div>
+            {commuteEmailWarning && (
+              <div style={{ fontSize: 12, color: "var(--bad)", marginBottom: 10 }}>
+                {commuteEmailWarning}
+              </div>
+            )}
             <audio
               controls
               src={commuteAudioUrl}

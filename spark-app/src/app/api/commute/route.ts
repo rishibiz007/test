@@ -37,28 +37,44 @@ export async function POST(req: NextRequest) {
   const agent = new MindStudioAgent({ apiKey });
   const script = buildScript(person, user);
 
-  // Run TTS first, then email the audio link
-  const { audioUrl } = await agent.textToSpeech({ text: script });
-
-  if (user.email) {
-    const firstName = person.name.split(" ")[0];
-    await agent.sendEmail({
-      to: user.email,
-      subject: `Your Ice Breakers for ${person.name} — listen on the go`,
-      body: [
-        `Hi ${user.name.split(" ")[0]},`,
-        "",
-        `Here's your audio briefing for your upcoming coffee chat with ${person.name} (${person.role} at ${person.company}).`,
-        "",
-        `Listen here: ${audioUrl}`,
-        "",
-        `Ice Breakers covered:`,
-        ...person.topics.map((t, i) => `${i + 1}. ${t.starter}`),
-        "",
-        "— Ice Breaker",
-      ].join("\n"),
-    });
+  let audioUrl: string;
+  try {
+    const tts = await agent.textToSpeech({ text: script });
+    audioUrl = tts.audioUrl;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[commute] TTS failed:", message);
+    return NextResponse.json(
+      { error: `Audio generation failed: ${message}`, stage: "tts" },
+      { status: 502 },
+    );
   }
 
-  return NextResponse.json({ audioUrl, script });
+  let emailWarning: string | undefined;
+  if (user.email) {
+    try {
+      await agent.sendEmail({
+        to: user.email,
+        subject: `Your Ice Breakers for ${person.name} — listen on the go`,
+        body: [
+          `Hi ${user.name.split(" ")[0]},`,
+          "",
+          `Here's your audio briefing for your upcoming coffee chat with ${person.name} (${person.role} at ${person.company}).`,
+          "",
+          `Listen here: ${audioUrl}`,
+          "",
+          `Ice Breakers covered:`,
+          ...person.topics.map((t, i) => `${i + 1}. ${t.starter}`),
+          "",
+          "— Ice Breaker",
+        ].join("\n"),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[commute] email send failed:", message);
+      emailWarning = `Audio generated, but email failed: ${message}`;
+    }
+  }
+
+  return NextResponse.json({ audioUrl, script, emailWarning });
 }
