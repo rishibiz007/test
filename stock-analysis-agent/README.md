@@ -28,14 +28,38 @@ Step 3: Add your OpenAI API key
 - Get your [OpenAI API key](https://platform.openai.com/api-keys)
 - Add it to config.env: `OPENAI_API_KEY=your_key_here`
 
-Step 4: Run the Stock Analysis Agent
+Step 4 (one-time): Download TextBlob's NLP corpora (needed for sentiment analysis)
+```
+python3 -m textblob.download_corpora
+```
+
+Step 5: Run the Stock Analysis Agent
 ```
 python3 agent.py
 ```
 
-## Example Questions
+You'll get a numbered menu — pick `1`-`4`, type a ticker, see the result. Type `q` to quit.
 
-1. Give performance of AMZN
-2. Compare AMZN to S&P500
-3. Fetch relevant news articles about AMZN
-4. Conduct sentiment analysis about AMZN
+```
+============================================
+ Stock Analysis Agent
+============================================
+  1) 1-year stock performance
+  2) Compare ticker to S&P 500
+  3) Recent news articles
+  4) News + sentiment analysis
+  q) Quit
+Pick [1-4 / q]:
+```
+
+### Natural-language mode (LangChain agent)
+
+If you'd rather type free-form questions and let the LLM route to the right tool:
+
+```
+python3 agent.py --ask
+```
+
+Then ask things like `Give performance of AMZN`, `Compare AMZN to S&P500`, `Fetch relevant news articles about AMZN`, `Conduct sentiment analysis about AMZN`.
+
+`--ask` mode uses `gpt-4o-mini` and incurs OpenAI API cost per request; the default menu mode does not (it calls the tool functions directly).

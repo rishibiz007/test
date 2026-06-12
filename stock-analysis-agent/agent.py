@@ -1,5 +1,6 @@
 # Standard library imports for basic functionality
 import os
+import sys
 from datetime import datetime, timedelta
 from typing import Dict, List  # Type hints for better code clarity
 
@@ -20,12 +21,15 @@ load_dotenv("config.env")
 # Main class that handles all stock analysis functionality
 class StockAnalyzer:
     def __init__(self):
-        """Initialize the StockAnalyzer with necessary API keys"""
-        # Get OpenAI API key from environment variables
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        if not self.openai_api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables")
-        # Instance-specific shared data storage
+        """Initialize the StockAnalyzer.
+
+        The OpenAI key is only required for the LangChain --ask mode. Menu
+        mode calls the tool methods directly with no LLM involvement, so
+        we don't enforce the key here. create_stock_agent() validates it
+        at the point of need instead.
+        """
+        # Storage used by the wrapper methods so the LangChain agent can
+        # pass news articles from get_news_articles into analyze_sentiment.
         self.shared_data = {}
 
     def get_stock_performance(self, symbol: str) -> Dict:
@@ -279,6 +283,9 @@ def create_stock_agent():
         AgentExecutor: An agent that can process natural language requests about stocks
     """
     
+    if not os.getenv("OPENAI_API_KEY"):
+        raise ValueError("OPENAI_API_KEY not found — required for --ask mode. Set it in config.env.")
+
     # Initialize the analyzer that contains all our stock analysis methods
     analyzer = StockAnalyzer()
     
@@ -336,29 +343,97 @@ def create_stock_agent():
     
     return agent_executor
 
-def main():
-    """Main function to run the stock analysis program
-    
-    This function creates the agent and runs an interactive loop where users
-    can input requests about stocks and get AI-powered analysis responses.
-    """
-    # Create the AI agent that will handle stock analysis requests
-    agent = create_stock_agent()
+MENU_OPTIONS = {
+    "1": ("1-year stock performance",          "get_stock_performance"),
+    "2": ("Compare ticker to S&P 500",         "compare_with_sp500"),
+    "3": ("Recent news articles",              "get_news_articles"),
+    "4": ("News + sentiment analysis",         "_news_and_sentiment"),
+}
 
+
+def _print_menu() -> None:
+    print()
+    print("=" * 44)
+    print(" Stock Analysis Agent")
+    print("=" * 44)
+    for key, (label, _) in MENU_OPTIONS.items():
+        print(f"  {key}) {label}")
+    print("  q) Quit")
+
+
+def _print_result(result) -> None:
+    """Pretty-print whatever a tool returned (dict, list of articles, etc.)."""
+    if isinstance(result, list):
+        if result and isinstance(result[0], dict) and result[0].get("error"):
+            print(f"  Error: {result[0]['error']}")
+            return
+        for i, item in enumerate(result, 1):
+            print(f"  {i}. {item.get('title', '(no title)')}")
+            print(f"     {item.get('url', '')}")
+    elif isinstance(result, dict):
+        if "error" in result:
+            print(f"  Error: {result['error']}")
+            return
+        for k, v in result.items():
+            print(f"  {k:>20}: {v}")
+    else:
+        print(f"  {result}")
+
+
+def run_menu_mode() -> None:
+    """Default mode: numbered menu, no LLM involved."""
+    analyzer = StockAnalyzer()
     while True:
-        user_request = input("\nEnter a stock symbol and the type of analysis you want to perform: ").strip().upper()
-        if user_request.lower() == 'quit':
-            break
-            
+        _print_menu()
+        choice = input("Pick [1-4 / q]: ").strip().lower()
+        if choice == "q":
+            print("Bye.")
+            return
+        if choice not in MENU_OPTIONS:
+            print("Invalid choice — pick 1, 2, 3, 4, or q.")
+            continue
+
+        ticker = input("Ticker symbol (e.g. AAPL): ").strip().upper()
+        if not ticker:
+            print("Skipped — empty ticker.")
+            continue
+
+        label, method_name = MENU_OPTIONS[choice]
+        print(f"\n>>> {label} for {ticker}")
+        print("-" * 44)
+        if method_name == "_news_and_sentiment":
+            articles = analyzer.get_news_articles(ticker)
+            if articles and isinstance(articles[0], dict) and articles[0].get("error"):
+                _print_result(articles)
+            else:
+                _print_result(analyzer.analyze_sentiment(articles))
+        else:
+            _print_result(getattr(analyzer, method_name)(ticker))
+
+
+def run_ask_mode() -> None:
+    """--ask mode: original LangChain natural-language agent loop."""
+    agent = create_stock_agent()
+    print("LangChain agent mode — ask any question about a stock. Type 'quit' to exit.")
+    while True:
+        user_request = input("\n> ").strip()
+        if user_request.lower() == "quit":
+            return
         try:
-            # Process the user's request using the AI agent
-            result = agent.invoke({
-                "input": user_request
-            })
+            result = agent.invoke({"input": user_request})
             print("\nAnalysis Results:")
             print(result["output"])
         except Exception as e:
             print(f"\nError: {str(e)}")
-    
+
+
+def main():
+    """Entry point — menu by default, LangChain agent with --ask."""
+    if "--ask" in sys.argv:
+        run_ask_mode()
+    else:
+        run_menu_mode()
+
+
 if __name__ == "__main__":
     main()
