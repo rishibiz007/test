@@ -34,8 +34,15 @@ python3 -m textblob.download_corpora
 ```
 
 Step 5: Run the Stock Analysis Agent
+
+One-step launcher (recommended) — handles `cd` + venv activation + start:
 ```
-python3 agent.py
+./run.sh
+```
+
+Or manually:
+```
+source .venv/bin/activate && python3 agent.py
 ```
 
 You'll get a numbered menu — pick `1`-`4`, type a ticker, see the result. Type `q` to quit.
