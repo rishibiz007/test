@@ -1,0 +1,7 @@
+langchain>=0.1.0
+langchain-openai>=0.0.2
+yfinance>=0.2.35
+python-dotenv>=1.0.0
+newspaper3k>=0.2.8
+textblob>=0.17.1
+lxml_html_clean
