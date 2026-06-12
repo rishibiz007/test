@@ -49,7 +49,14 @@ export async function POST(req: NextRequest) {
 
   let audioUrl: string;
   try {
-    const tts = await agent.textToSpeech({ text: script });
+    // Pin to tts-1-hd: MindStudio's TTS pipeline returns step_execution_error
+    // on gpt-4o-mini-tts, and the per-app model setting tied to this API key
+    // doesn't always pick up workspace-default changes. Pinning in code
+    // sidesteps both.
+    const tts = await agent.textToSpeech({
+      text: script,
+      speechModelOverride: { model: "tts-1-hd" },
+    });
     audioUrl = tts.audioUrl;
   } catch (err) {
     const message = describeError(err);
