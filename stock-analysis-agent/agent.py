@@ -23,21 +23,25 @@ load_dotenv("config.env")
 # data (Damodaran / S&P sector composites, ~2024–2025). They are not real-time
 # — refresh periodically. P/E and PEG: lower-than-sector is bullish.
 # ROE: higher-than-sector is bullish. ROE is stored as a decimal (0.22 = 22%).
+# eps_growth is yfinance's earningsGrowth field (annualized YoY EPS growth
+# as a decimal — 0.15 = 15%). Higher than sector = bullish (better earnings
+# momentum). Note: raw EPS in dollars is not sector-comparable because
+# share counts vary, so we only score EPS *growth*, not raw EPS itself.
 SECTOR_BENCHMARKS = {
-    "Technology":             {"pe": 28.0, "peg": 2.0, "roe": 0.22},
-    "Healthcare":             {"pe": 22.0, "peg": 1.8, "roe": 0.16},
-    "Financial Services":     {"pe": 14.0, "peg": 1.4, "roe": 0.12},
-    "Consumer Cyclical":      {"pe": 24.0, "peg": 1.7, "roe": 0.18},
-    "Consumer Defensive":     {"pe": 21.0, "peg": 2.5, "roe": 0.20},
-    "Communication Services": {"pe": 20.0, "peg": 1.6, "roe": 0.18},
-    "Industrials":            {"pe": 22.0, "peg": 1.9, "roe": 0.17},
-    "Energy":                 {"pe": 12.0, "peg": 1.0, "roe": 0.15},
-    "Utilities":              {"pe": 18.0, "peg": 3.0, "roe": 0.09},
-    "Real Estate":            {"pe": 35.0, "peg": 2.8, "roe": 0.08},
-    "Basic Materials":        {"pe": 18.0, "peg": 1.5, "roe": 0.13},
+    "Technology":             {"pe": 28.0, "peg": 2.0, "roe": 0.22, "eps_growth": 0.15},
+    "Healthcare":             {"pe": 22.0, "peg": 1.8, "roe": 0.16, "eps_growth": 0.10},
+    "Financial Services":     {"pe": 14.0, "peg": 1.4, "roe": 0.12, "eps_growth": 0.08},
+    "Consumer Cyclical":      {"pe": 24.0, "peg": 1.7, "roe": 0.18, "eps_growth": 0.10},
+    "Consumer Defensive":     {"pe": 21.0, "peg": 2.5, "roe": 0.20, "eps_growth": 0.06},
+    "Communication Services": {"pe": 20.0, "peg": 1.6, "roe": 0.18, "eps_growth": 0.12},
+    "Industrials":            {"pe": 22.0, "peg": 1.9, "roe": 0.17, "eps_growth": 0.08},
+    "Energy":                 {"pe": 12.0, "peg": 1.0, "roe": 0.15, "eps_growth": 0.05},
+    "Utilities":              {"pe": 18.0, "peg": 3.0, "roe": 0.09, "eps_growth": 0.05},
+    "Real Estate":            {"pe": 35.0, "peg": 2.8, "roe": 0.08, "eps_growth": 0.05},
+    "Basic Materials":        {"pe": 18.0, "peg": 1.5, "roe": 0.13, "eps_growth": 0.05},
     # Fallback when yfinance returns a sector name we don't recognize —
     # S&P 500 broad-market averages.
-    "_DEFAULT":               {"pe": 22.0, "peg": 1.8, "roe": 0.15},
+    "_DEFAULT":               {"pe": 22.0, "peg": 1.8, "roe": 0.15, "eps_growth": 0.09},
 }
 
 
@@ -59,23 +63,26 @@ def _score_ratio(stock_value, sector_value, lower_is_better: bool):
         return ("Neutral (in line with sector)", 0)
     else:
         if ratio > 1.15:
-            return ("Bullish (more profitable than sector)", 1)
+            return ("Bullish (above sector avg)", 1)
         if ratio < 0.85:
-            return ("Bearish (less profitable than sector)", -1)
+            return ("Bearish (below sector avg)", -1)
         return ("Neutral (in line with sector)", 0)
 
 
 def _score_to_recommendation(total: int, valid_count: int) -> str:
-    """Map summed -3..+3 score into a human-readable recommendation."""
+    """Map summed score into a buy/sell label using the share of metrics
+    that came out bullish vs bearish — works with any number of metrics.
+    """
     if valid_count == 0:
         return "INSUFFICIENT DATA"
-    if total >= 2:
+    ratio = total / valid_count
+    if ratio >= 2 / 3:   # majority strongly bullish (e.g. 3/3, 3/4, 4/4)
         return "STRONG BUY"
-    if total == 1:
+    if ratio > 0:        # net bullish but not dominant
         return "BUY"
-    if total == 0:
+    if ratio == 0:
         return "HOLD"
-    if total == -1:
+    if ratio > -2 / 3:   # net bearish but not dominant
         return "SELL"
     return "STRONG SELL"
 
@@ -331,15 +338,27 @@ class StockAnalyzer:
             stock_pe = info.get("trailingPE")
             stock_peg = info.get("pegRatio") or info.get("trailingPegRatio")
             stock_roe = info.get("returnOnEquity")
+            stock_eps = info.get("trailingEps")
+            # earningsGrowth is YoY EPS growth as a decimal; fall back to
+            # quarterly if annual is missing.
+            stock_eps_growth = info.get("earningsGrowth")
+            if stock_eps_growth is None:
+                stock_eps_growth = info.get("earningsQuarterlyGrowth")
 
             bench = SECTOR_BENCHMARKS.get(sector, SECTOR_BENCHMARKS["_DEFAULT"])
-            sector_pe, sector_peg, sector_roe = bench["pe"], bench["peg"], bench["roe"]
+            sector_pe = bench["pe"]
+            sector_peg = bench["peg"]
+            sector_roe = bench["roe"]
+            sector_eps_growth = bench["eps_growth"]
 
             pe_verdict, pe_score = _score_ratio(stock_pe, sector_pe, lower_is_better=True)
             peg_verdict, peg_score = _score_ratio(stock_peg, sector_peg, lower_is_better=True)
             roe_verdict, roe_score = _score_ratio(stock_roe, sector_roe, lower_is_better=False)
+            eps_growth_verdict, eps_growth_score = _score_ratio(
+                stock_eps_growth, sector_eps_growth, lower_is_better=False
+            )
 
-            valid_scores = [s for s in (pe_score, peg_score, roe_score) if s is not None]
+            valid_scores = [s for s in (pe_score, peg_score, roe_score, eps_growth_score) if s is not None]
             total = sum(valid_scores)
             recommendation = _score_to_recommendation(total, len(valid_scores))
 
@@ -356,8 +375,14 @@ class StockAnalyzer:
                 "stock_roe_pct": round(stock_roe * 100, 2) if stock_roe is not None else None,
                 "sector_roe_pct": round(sector_roe * 100, 2),
                 "roe_verdict": roe_verdict,
+                # Raw EPS shown for context only — not scored (share counts
+                # vary too much across companies for $-EPS to be comparable).
+                "stock_eps": round(stock_eps, 2) if stock_eps is not None else None,
+                "stock_eps_growth_pct": round(stock_eps_growth * 100, 2) if stock_eps_growth is not None else None,
+                "sector_eps_growth_pct": round(sector_eps_growth * 100, 2),
+                "eps_growth_verdict": eps_growth_verdict,
                 "score": total,
-                "metrics_scored": f"{len(valid_scores)}/3",
+                "metrics_scored": f"{len(valid_scores)}/4",
                 "recommendation": recommendation,
             }
         except Exception as e:
@@ -510,17 +535,22 @@ def _print_key_ratios(r: Dict) -> None:
     print(f"  Symbol: {r['symbol']}    Sector: {r['sector']}")
     print(f"  ({r['sector_benchmark_source']})")
     print()
-    print(f"  {'Metric':<8} {'Stock':>10} {'Sector':>10}   Verdict")
-    print(f"  {'-'*8} {'-'*10} {'-'*10}   {'-'*40}")
+    eps_display = f"${r['stock_eps']:.2f}" if isinstance(r.get('stock_eps'), (int, float)) else "N/A"
+    print(f"  EPS (trailing 12mo): {eps_display}  — shown for context only,"
+          " not scored against sector (share counts vary too much).")
+    print()
+    print(f"  {'Metric':<12} {'Stock':>10} {'Sector':>10}   Verdict")
+    print(f"  {'-'*12} {'-'*10} {'-'*10}   {'-'*40}")
     rows = [
-        ("P/E",  r["stock_pe"],       r["sector_pe"],       r["pe_verdict"]),
-        ("PEG",  r["stock_peg"],      r["sector_peg"],      r["peg_verdict"]),
-        ("ROE%", r["stock_roe_pct"],  r["sector_roe_pct"],  r["roe_verdict"]),
+        ("P/E",          r["stock_pe"],               r["sector_pe"],               r["pe_verdict"]),
+        ("PEG",          r["stock_peg"],              r["sector_peg"],              r["peg_verdict"]),
+        ("ROE %",        r["stock_roe_pct"],          r["sector_roe_pct"],          r["roe_verdict"]),
+        ("EPS growth%",  r["stock_eps_growth_pct"],   r["sector_eps_growth_pct"],   r["eps_growth_verdict"]),
     ]
     for name, stock_v, sector_v, verdict in rows:
         stock_s = f"{stock_v:.2f}" if isinstance(stock_v, (int, float)) else "N/A"
         sector_s = f"{sector_v:.2f}"
-        print(f"  {name:<8} {stock_s:>10} {sector_s:>10}   {verdict}")
+        print(f"  {name:<12} {stock_s:>10} {sector_s:>10}   {verdict}")
     print()
     print(f"  Score: {r['score']:+d}  (across {r['metrics_scored']} metrics)")
     print(f"  >>> RECOMMENDATION: {r['recommendation']}")
