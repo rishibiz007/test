@@ -18,6 +18,68 @@ from textblob import TextBlob  # For sentiment analysis of text
 # This keeps sensitive data like API keys secure
 load_dotenv("config.env")
 
+# Approximate sector-average ratios used as benchmarks for the key-ratio
+# comparison tool. These are rounded values drawn from broadly cited industry
+# data (Damodaran / S&P sector composites, ~2024–2025). They are not real-time
+# — refresh periodically. P/E and PEG: lower-than-sector is bullish.
+# ROE: higher-than-sector is bullish. ROE is stored as a decimal (0.22 = 22%).
+SECTOR_BENCHMARKS = {
+    "Technology":             {"pe": 28.0, "peg": 2.0, "roe": 0.22},
+    "Healthcare":             {"pe": 22.0, "peg": 1.8, "roe": 0.16},
+    "Financial Services":     {"pe": 14.0, "peg": 1.4, "roe": 0.12},
+    "Consumer Cyclical":      {"pe": 24.0, "peg": 1.7, "roe": 0.18},
+    "Consumer Defensive":     {"pe": 21.0, "peg": 2.5, "roe": 0.20},
+    "Communication Services": {"pe": 20.0, "peg": 1.6, "roe": 0.18},
+    "Industrials":            {"pe": 22.0, "peg": 1.9, "roe": 0.17},
+    "Energy":                 {"pe": 12.0, "peg": 1.0, "roe": 0.15},
+    "Utilities":              {"pe": 18.0, "peg": 3.0, "roe": 0.09},
+    "Real Estate":            {"pe": 35.0, "peg": 2.8, "roe": 0.08},
+    "Basic Materials":        {"pe": 18.0, "peg": 1.5, "roe": 0.13},
+    # Fallback when yfinance returns a sector name we don't recognize —
+    # S&P 500 broad-market averages.
+    "_DEFAULT":               {"pe": 22.0, "peg": 1.8, "roe": 0.15},
+}
+
+
+def _score_ratio(stock_value, sector_value, lower_is_better: bool):
+    """Return (verdict, score_int) for one ratio comparison.
+
+    score_int is +1 (bullish), 0 (neutral), -1 (bearish), or None if the
+    stock or sector value is missing. The 15% band around the sector
+    average is treated as 'in line' (neutral).
+    """
+    if stock_value is None or sector_value is None or sector_value == 0:
+        return ("N/A", None)
+    ratio = stock_value / sector_value
+    if lower_is_better:
+        if ratio < 0.85:
+            return ("Bullish (cheaper than sector)", 1)
+        if ratio > 1.15:
+            return ("Bearish (richer than sector)", -1)
+        return ("Neutral (in line with sector)", 0)
+    else:
+        if ratio > 1.15:
+            return ("Bullish (more profitable than sector)", 1)
+        if ratio < 0.85:
+            return ("Bearish (less profitable than sector)", -1)
+        return ("Neutral (in line with sector)", 0)
+
+
+def _score_to_recommendation(total: int, valid_count: int) -> str:
+    """Map summed -3..+3 score into a human-readable recommendation."""
+    if valid_count == 0:
+        return "INSUFFICIENT DATA"
+    if total >= 2:
+        return "STRONG BUY"
+    if total == 1:
+        return "BUY"
+    if total == 0:
+        return "HOLD"
+    if total == -1:
+        return "SELL"
+    return "STRONG SELL"
+
+
 # Main class that handles all stock analysis functionality
 class StockAnalyzer:
     def __init__(self):
@@ -251,6 +313,56 @@ class StockAnalyzer:
             print(f"Error in sentiment analysis: {str(e)}")
             return {"error": f"Error in sentiment analysis: {str(e)}"}
 
+    def get_key_ratios(self, symbol: str) -> Dict:
+        """Compare a stock's P/E, PEG, and ROE against its sector average and
+        return a buy/sell recommendation.
+
+        Pulls trailingPE, pegRatio, and returnOnEquity from yfinance, looks
+        up the sector benchmark from SECTOR_BENCHMARKS, scores each ratio
+        (+1/0/-1), sums the score, and maps it to one of:
+        STRONG BUY / BUY / HOLD / SELL / STRONG SELL.
+        """
+        try:
+            info = yf.Ticker(symbol).info
+            if not info or info.get("trailingPE") is None and info.get("sector") is None:
+                return {"error": f"No financials found for symbol {symbol}"}
+
+            sector = info.get("sector") or "Unknown"
+            stock_pe = info.get("trailingPE")
+            stock_peg = info.get("pegRatio") or info.get("trailingPegRatio")
+            stock_roe = info.get("returnOnEquity")
+
+            bench = SECTOR_BENCHMARKS.get(sector, SECTOR_BENCHMARKS["_DEFAULT"])
+            sector_pe, sector_peg, sector_roe = bench["pe"], bench["peg"], bench["roe"]
+
+            pe_verdict, pe_score = _score_ratio(stock_pe, sector_pe, lower_is_better=True)
+            peg_verdict, peg_score = _score_ratio(stock_peg, sector_peg, lower_is_better=True)
+            roe_verdict, roe_score = _score_ratio(stock_roe, sector_roe, lower_is_better=False)
+
+            valid_scores = [s for s in (pe_score, peg_score, roe_score) if s is not None]
+            total = sum(valid_scores)
+            recommendation = _score_to_recommendation(total, len(valid_scores))
+
+            return {
+                "symbol": symbol,
+                "sector": sector,
+                "sector_benchmark_source": "Hardcoded sector composite (~2024–2025)",
+                "stock_pe": round(stock_pe, 2) if stock_pe is not None else None,
+                "sector_pe": sector_pe,
+                "pe_verdict": pe_verdict,
+                "stock_peg": round(stock_peg, 2) if stock_peg is not None else None,
+                "sector_peg": sector_peg,
+                "peg_verdict": peg_verdict,
+                "stock_roe_pct": round(stock_roe * 100, 2) if stock_roe is not None else None,
+                "sector_roe_pct": round(sector_roe * 100, 2),
+                "roe_verdict": roe_verdict,
+                "score": total,
+                "metrics_scored": f"{len(valid_scores)}/3",
+                "recommendation": recommendation,
+            }
+        except Exception as e:
+            return {"error": f"Error fetching key ratios: {str(e)}"}
+
     def get_news_articles_wrapper(self, symbol: str):
         """Wrapper method for get_news_articles that stores results in shared data
         
@@ -297,12 +409,14 @@ def create_stock_agent():
         - Compare with S&P 500
         - Get news articles
         - Analyze sentiment of articles
+        - Get key ratio comparable (P/E, PEG, ROE vs sector → buy/sell recommendation)
 
         IMPORTANT: Only use tools that are specifically relevant to the user's request.
         For example:
         - If user asks for news, only use get_news_articles
         - If user asks for sentiment, use get_news_articles followed by analyze_sentiment
-        
+        - If user asks for a buy/sell recommendation, valuation, or fundamentals, use get_key_ratios
+
         DO NOT use tools that weren't specifically requested."""),
         ("human", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad")
@@ -332,6 +446,11 @@ def create_stock_agent():
             name="analyze_sentiment",
             func=analyzer.analyze_sentiment_wrapper,
             description="Analyze sentiment of news articles. Use only when sentiment analysis is specifically requested."
+        ),
+        Tool(
+            name="get_key_ratios",
+            func=analyzer.get_key_ratios,
+            description="Compare stock's P/E, PEG, and ROE against its sector average and produce a buy/sell recommendation. Use when the user asks for fundamentals, valuation, key ratios, or a buy/sell decision."
         )
     ]
     
@@ -348,6 +467,7 @@ MENU_OPTIONS = {
     "2": ("Compare ticker to S&P 500",         "compare_with_sp500"),
     "3": ("Recent news articles",              "get_news_articles"),
     "4": ("News + sentiment analysis",         "_news_and_sentiment"),
+    "5": ("Key ratio comparable (BUY/SELL)",   "get_key_ratios"),
 }
 
 
@@ -374,10 +494,36 @@ def _print_result(result) -> None:
         if "error" in result:
             print(f"  Error: {result['error']}")
             return
+        # Key-ratio dict gets a structured layout with the recommendation
+        # called out at the bottom.
+        if "recommendation" in result:
+            _print_key_ratios(result)
+            return
         for k, v in result.items():
             print(f"  {k:>20}: {v}")
     else:
         print(f"  {result}")
+
+
+def _print_key_ratios(r: Dict) -> None:
+    """Custom layout for the get_key_ratios output."""
+    print(f"  Symbol: {r['symbol']}    Sector: {r['sector']}")
+    print(f"  ({r['sector_benchmark_source']})")
+    print()
+    print(f"  {'Metric':<8} {'Stock':>10} {'Sector':>10}   Verdict")
+    print(f"  {'-'*8} {'-'*10} {'-'*10}   {'-'*40}")
+    rows = [
+        ("P/E",  r["stock_pe"],       r["sector_pe"],       r["pe_verdict"]),
+        ("PEG",  r["stock_peg"],      r["sector_peg"],      r["peg_verdict"]),
+        ("ROE%", r["stock_roe_pct"],  r["sector_roe_pct"],  r["roe_verdict"]),
+    ]
+    for name, stock_v, sector_v, verdict in rows:
+        stock_s = f"{stock_v:.2f}" if isinstance(stock_v, (int, float)) else "N/A"
+        sector_s = f"{sector_v:.2f}"
+        print(f"  {name:<8} {stock_s:>10} {sector_s:>10}   {verdict}")
+    print()
+    print(f"  Score: {r['score']:+d}  (across {r['metrics_scored']} metrics)")
+    print(f"  >>> RECOMMENDATION: {r['recommendation']}")
 
 
 def run_menu_mode() -> None:
@@ -385,12 +531,12 @@ def run_menu_mode() -> None:
     analyzer = StockAnalyzer()
     while True:
         _print_menu()
-        choice = input("Pick [1-4 / q]: ").strip().lower()
+        choice = input("Pick [1-5 / q]: ").strip().lower()
         if choice == "q":
             print("Bye.")
             return
         if choice not in MENU_OPTIONS:
-            print("Invalid choice — pick 1, 2, 3, 4, or q.")
+            print("Invalid choice — pick 1, 2, 3, 4, 5, or q.")
             continue
 
         ticker = input("Ticker symbol (e.g. AAPL): ").strip().upper()

@@ -55,9 +55,24 @@ You'll get a numbered menu — pick `1`-`4`, type a ticker, see the result. Type
   2) Compare ticker to S&P 500
   3) Recent news articles
   4) News + sentiment analysis
+  5) Key ratio comparable (BUY/SELL)
   q) Quit
-Pick [1-4 / q]:
+Pick [1-5 / q]:
 ```
+
+### About option 5 — Key ratio comparable
+
+Pulls trailing P/E, PEG, and ROE for the ticker from yfinance, compares each against a sector-average benchmark, and scores each ratio bullish/neutral/bearish (+1 / 0 / -1). The summed score maps to:
+
+| Score | Recommendation |
+|---|---|
+| +2 or +3 | STRONG BUY |
+| +1 | BUY |
+| 0 | HOLD |
+| -1 | SELL |
+| -2 or -3 | STRONG SELL |
+
+Sector benchmarks are hardcoded approximations of S&P sector composites (~2024–2025), edit `SECTOR_BENCHMARKS` at the top of `agent.py` to refresh. Lower P/E and PEG vs sector are bullish; higher ROE vs sector is bullish. Not financial advice — this is a heuristic, not a model.
 
 ### Natural-language mode (LangChain agent)
 
