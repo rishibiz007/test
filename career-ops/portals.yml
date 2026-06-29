@@ -50,28 +50,83 @@
 # Example below targets US-based remote + a couple of US metros, blocking
 # common foreign hubs. Customize to your geography.
 
-# location_filter:
-#   # always_allow is checked BEFORE block — keep this list to your home region only
-#   always_allow:
-#     - "United States"   # (replace with your home region)
-#     - "New York"
-#   allow:
-#     - "Remote"
-#     - "United States"
-#     - "USA"
-#     - "Atlanta"
-#     - "New York"
-#   block:
-#     - "India"
-#     - "Bengaluru"
-#     - "United Kingdom"
-#     - "London"
-#     - "Germany"
-#     - "France"
-#     - "Singapore"
-#     - "Japan"
-#     - "Brazil"
-#     - "Australia"
+location_filter:
+  # always_allow wins over block — rescues US-inclusive multi-region postings
+  # like "United States & Canada" or "London, San Francisco".
+  always_allow:
+    - "United States"
+    - "USA"
+    - "U.S."
+    - "California"
+    - "Bay Area"
+    - "San Francisco"
+    - "New York"
+  # allow empty → any job not blocked passes. This keeps every US metro + any
+  # Remote role without having to enumerate every US city (the block list does
+  # the work instead).
+  allow: []
+  # Block known non-US locations: country names plus the foreign hubs that
+  # showed up in the last scan. Country names are skipped where they collide
+  # with US places ("India"→Indiana, "Mexico"→New Mexico, "Vancouver"→WA,
+  # "Dublin"→Dublin CA) — specific foreign cities are used there instead.
+  block:
+    - "United Kingdom"
+    - "London"
+    - "Manchester"
+    - "Edinburgh"
+    - "Germany"
+    - "Berlin"
+    - "Munich"
+    - "France"
+    - "Paris"
+    - "Spain"
+    - "España"
+    - "Madrid"
+    - "Barcelona"
+    - "Poland"
+    - "Warszawa"
+    - "Kraków"
+    - "Krakow"
+    - "Gdynia"
+    - "Gdańsk"
+    - "Gdansk"
+    - "Wrocław"
+    - "Wroclaw"
+    - "Sweden"
+    - "Stockholm"
+    - "Ireland"
+    - "Netherlands"
+    - "Amsterdam"
+    - "Bengaluru"
+    - "Bangalore"
+    - "Hyderabad"
+    - "Mumbai"
+    - "Pune"
+    - "Canada"
+    - "Toronto"
+    - "Singapore"
+    - "Japan"
+    - "Tokyo"
+    - "Australia"
+    - "Sydney"
+    - "Melbourne"
+    - "Brazil"
+    - "Portugal"
+    - "Lisbon"
+    - "Switzerland"
+    - "Zurich"
+    - "Italy"
+    - "Norway"
+    - "Denmark"
+    - "Finland"
+    - "Belgium"
+    - "Israel"
+    - "Hong Kong"
+    - "Philippines"
+    - "Indonesia"
+    - "EMEA"
+    - "APAC"
+    - "LATAM"
 
 # -- Salary filter (optional) --
 # Filter scanned jobs by annual compensation range. Applied AFTER location
